@@ -25,8 +25,11 @@ public class KafkaConfig {
     public ProducerFactory<String, String> producerFactory() {
         Map<String, Object> config = new HashMap<>();
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        // 3. 처리량 최적화를 위한 배치 설정
+        config.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384); // 16KB
+        config.put(ProducerConfig.LINGER_MS_CONFIG, 10); // 10ms 대기 후 묶어서 전송
+        config.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy"); // 메시지 압축
+
         return new DefaultKafkaProducerFactory<>(config);
     }
 
@@ -46,13 +49,16 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, String>
-    kafkaListenerContainerFactory() {
-
-        ConcurrentKafkaListenerContainerFactory<String, String> factory =
-                new ConcurrentKafkaListenerContainerFactory<>();
-
+    public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
+
+        // 1. 컨슈머 쓰레드 개수 설정
+        factory.setConcurrency(3);
+
+        // 2. 대량 처리를 위한 배치 리스너 설정
+        factory.setBatchListener(true);
+
         return factory;
     }
 }

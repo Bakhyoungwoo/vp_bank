@@ -7,5 +7,6 @@ import lombok.Getter;
 @AllArgsConstructor
 public class UserEvent {
     private Long userId;
-    private String action;
+    private String email;
+    private String action; // "CREATED", "LOGIN_SUCCESS", "LOGIN_FAIL"
 }
