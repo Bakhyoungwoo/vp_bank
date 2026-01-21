@@ -14,11 +14,14 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      redis: # 추가
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vapdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
       SPRING_DATASOURCE_USERNAME: vap
       SPRING_DATASOURCE_PASSWORD: vap123
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATA_REDIS_HOST: redis # 추가
     deploy:
       resources:
         limits:
@@ -44,10 +47,19 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    deploy:
-      resources:
-        limits:
-          memory: 512M
+
+  # Redis 추가
+  redis:
+    image: redis:latest
+    container_name: vap-redis
+    command: ["redis-server", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -55,10 +67,6 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    deploy:
-      resources:
-        limits:
-          memory: 256M
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
@@ -75,19 +83,12 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
     healthcheck:
-      # 포트가 열려있는지 확인하는 가장 가벼운 체크 방식입니다.
-      test: ["CMD", "nc", "-z", "localhost", "9092"]
+      test: ["CMD-SHELL", "nc -z localhost 9092 || exit 1"]
       interval: 10s
       timeout: 10s
       retries: 5
-      start_period: 30s # 카프카 구동 초기 30초 동안은 실패해도 기다려줍니다.
-    deploy:
-      resources:
-        limits:
-          memory: 1G
+      start_period: 30s
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -97,7 +98,6 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
-      DYNAMIC_CONFIG_ENABLED: 'true'
     depends_on:
       kafka:
         condition: service_healthy
