@@ -1,41 +1,61 @@
 package com.example.vap_back.service;
 
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class NewsRedisService {
 
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String, String> redisTemplate;
+    public NewsRedisService(
+            @Qualifier("newsRedisTemplate")
+            RedisTemplate<String, String> redisTemplate
+    ) {
+        this.redisTemplate = redisTemplate;
+    }
 
-    /**
-     * 특정 카테고리의 실시간 트렌드 키워드 조회 (Score 순)
-     */
+    // key: trend:{category}:scores
     public List<Map<String, Object>> getTrendKeywords(String category) {
         String key = "trend:" + category + ":scores";
 
-        // Redis ZSET에서 상위 5개 가져오기
-        Set<Object> range = redisTemplate.opsForZSet().reverseRange(key, 0, 4);
+        Set<ZSetOperations.TypedTuple<String>> range =
+                redisTemplate.opsForZSet().reverseRangeWithScores(key, 0, 4);
 
-        return range.stream().map(word -> {
-            Double score = redisTemplate.opsForZSet().score(key, word);
-            return Map.of("keyword", word, "score", score);
-        }).collect(Collectors.toList());
+        if (range == null || range.isEmpty()) {
+            System.out.println("[Redis] No keyword scores for key = " + key);
+            return List.of();
+        }
+
+        return range.stream()
+                .map(tuple -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("keyword", tuple.getValue());
+                    map.put("score", tuple.getScore());
+                    return map;
+                })
+                .collect(Collectors.toList());
     }
 
-    /**
-     * 특정 카테고리의 최신 기사 리스트 조회
-     * (FastAPI에서 trend:category:articles 키에 리스트를 저장했을 경우)
-     */
-    public List<Object> getLatestArticles(String category) {
+    // key: trend:{category}:articles
+    public List<String> getLatestArticles(String category, int limit) {
         String key = "trend:" + category + ":articles";
-        return redisTemplate.opsForList().range(key, 0, 9);
+
+        List<String> articles =
+                redisTemplate.opsForList().range(key, 0, limit - 1);
+
+        if (articles == null || articles.isEmpty()) {
+            System.out.println("[Redis] No articles for key = " + key);
+            return List.of();
+        }
+
+        return articles;
     }
 }
