@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class UserConsumer {
 
-    @KafkaListener(topics = "employee-topic", groupId = "user-group")
+    @KafkaListener(topics = "users-topic", groupId = "users-group")
     public void consume(User user) {
 
         System.out.println("======================================");
@@ -15,7 +15,6 @@ public class UserConsumer {
         System.out.println("ID        : " + user.getId());
         System.out.println("Name      : " + user.getName());
         System.out.println("Department: " + user.getDepartment());
-        System.out.println("Position  : " + user.getPosition());
         System.out.println("======================================");
     }
 }

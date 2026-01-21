@@ -11,12 +11,12 @@ import org.springframework.stereotype.Service;
 public class UserProducer {
 
     private final KafkaTemplate<String, String> kafkaTemplate;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     public void send(UserEvent event) {
         try {
             String message = objectMapper.writeValueAsString(event);
-            kafkaTemplate.send("employee-topic", message);
+            kafkaTemplate.send("users-topic", message);
         } catch (Exception e) {
             throw new RuntimeException("Kafka 전송 실패", e);
         }
