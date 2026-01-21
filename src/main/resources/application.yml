@@ -13,8 +13,14 @@ spring:
       hibernate:
         format_sql: true
 
+  # Redis 설정 추가
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
   kafka:
-    bootstrap-servers: kafka:9092
+    bootstrap-servers: localhost:29092 # 로컬 테스트 시 29092 사용
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
