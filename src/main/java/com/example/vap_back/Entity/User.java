@@ -1,4 +1,4 @@
-package com.example.vap_back.Entity; // 소문자 주의
+package com.example.vap_back.Entity;
 
 import jakarta.persistence.*;
 import lombok.*;
