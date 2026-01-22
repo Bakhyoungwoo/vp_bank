@@ -12,35 +12,74 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-// jwt 토큰 필터
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path.startsWith("/api/auth");
+    }
 
-        // 1. Request Header에서 토큰 추출
+    @Override
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+
+        String path = request.getRequestURI();
+        System.out.println("\n[JWT FILTER] REQUEST path = " + path);
+
+        // 토큰 추출
         String token = resolveToken(request);
-
-        // 2. 토큰 유효성 검사 (JwtTokenProvider의 validateToken 메서드 사용)
-        if (token != null && jwtTokenProvider.validateToken(token)) {
-            // 토큰이 유효하면 인증 객체(Authentication)를 생성해서 SecurityContext에 저장
-            Authentication authentication = jwtTokenProvider.getAuthentication(token);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+        if (token == null) {
+            System.out.println("[JWT FILTER] Token 없음");
+        } else {
+            System.out.println("[JWT FILTER] Token 추출됨");
+            System.out.println("[JWT FILTER] Token (앞 20자): " +
+                    token.substring(0, Math.min(20, token.length())) + "...");
         }
 
-        // 3. 다음 필터로 이동
+        // 토큰 검증
+        if (token != null) {
+            boolean valid = jwtTokenProvider.validateToken(token);
+            System.out.println("[JWT FILTER] validateToken = " + valid);
+
+            if (valid) {
+                Authentication authentication =
+                        jwtTokenProvider.getAuthentication(token);
+
+                if (authentication == null) {
+                    System.out.println("[JWT FILTER] Authentication 생성 실패");
+                } else {
+                    System.out.println("[JWT FILTER] Authentication 생성 성공");
+                    System.out.println("[JWT FILTER] principal = " + authentication.getPrincipal());
+                    System.out.println("[JWT FILTER] authorities = " + authentication.getAuthorities());
+
+                    SecurityContextHolder.getContext()
+                            .setAuthentication(authentication);
+
+                    System.out.println("[JWT FILTER] SecurityContext에 Authentication 저장 완료");
+                }
+            }
+        }
+
         filterChain.doFilter(request, response);
     }
 
-     // Header에서 "Authorization": "Bearer {Token}" 부분을 찾아 토큰값만 추출
+    // Authorization 헤더에서 Bearer 토큰 추출
     private String resolveToken(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
+
+        if (StringUtils.hasText(bearerToken)) {
+            System.out.println("[JWT FILTER] Authorization header = " + bearerToken);
+
+            if (bearerToken.startsWith("Bearer ")) {
+                return bearerToken.substring(7);
+            }
         }
         return null;
     }
