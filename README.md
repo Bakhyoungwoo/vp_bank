@@ -53,5 +53,5 @@ AI 키워드 추출을 통한 뉴스 트렌드 분석을 제공하는 시스템�
 
 ---
 ## 🏛️ 시스템 아키텍처
+<img width="1536" height="1024" alt="VAP System Architecture" src="https://github.com/user-attachments/assets/02038672-2a00-45bd-b6a2-4050549d5d7c" />
 
-![VAP System Architecture](./docs/images/system-architecture.png)
