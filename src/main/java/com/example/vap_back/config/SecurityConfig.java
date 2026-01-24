@@ -36,7 +36,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/users/login",
                                 "/api/users/signup",
-                                "/api/news/click",
+                                "/api/news/**",
                                 "/api/internal/**"
                         ).permitAll()
                         .requestMatchers("/api/news/recommend").authenticated()
