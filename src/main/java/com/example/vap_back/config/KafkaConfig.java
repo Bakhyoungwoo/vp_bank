@@ -1,5 +1,6 @@
 package com.example.vap_back.config;
 
+import com.example.vap_back.dto.NewsCrawlEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -10,6 +11,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,20 +24,19 @@ public class KafkaConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
+    /* =========================
+       기존 STRING Kafka (유지)
+       ========================= */
+
     @Bean
     public ProducerFactory<String, String> producerFactory() {
         Map<String, Object> config = new HashMap<>();
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-
-        // Producer Serializer 설정 추가
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-
-        // 처리량 최적화를 위한 배치 설정
-        config.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384); // 16KB
-        config.put(ProducerConfig.LINGER_MS_CONFIG, 10); // 10ms 대기 후 묶어서 전송
-        config.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy"); // 메시지 압축
-
+        config.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
+        config.put(ProducerConfig.LINGER_MS_CONFIG, 10);
+        config.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
         return new DefaultKafkaProducerFactory<>(config);
     }
 
@@ -54,15 +56,63 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
+    public ConcurrentKafkaListenerContainerFactory<String, String>
+    kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
-
-        // 컨슈머 쓰레드 개수 설정
         factory.setConcurrency(3);
-
-        // 대량 처리를 위한 배치 리스너 설정
         factory.setBatchListener(true);
+        return factory;
+    }
+
+    /* =========================
+       🔥 NewsCrawlEvent 전용 Kafka
+       ========================= */
+
+    @Bean
+    public ProducerFactory<String, NewsCrawlEvent> newsCrawlProducerFactory() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        return new DefaultKafkaProducerFactory<>(config);
+    }
+
+    @Bean
+    public KafkaTemplate<String, NewsCrawlEvent> newsCrawlKafkaTemplate() {
+        return new KafkaTemplate<>(newsCrawlProducerFactory());
+    }
+
+    @Bean
+    public ConsumerFactory<String, NewsCrawlEvent> newsCrawlConsumerFactory() {
+        JsonDeserializer<NewsCrawlEvent> deserializer =
+                new JsonDeserializer<>(NewsCrawlEvent.class);
+        deserializer.addTrustedPackages("*");
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, "news-crawler-group");
+        config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializer);
+
+        return new DefaultKafkaConsumerFactory<>(
+                config,
+                new StringDeserializer(),
+                deserializer
+        );
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, NewsCrawlEvent>
+    newsCrawlKafkaListenerContainerFactory() {
+
+        ConcurrentKafkaListenerContainerFactory<String, NewsCrawlEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+
+        factory.setConsumerFactory(newsCrawlConsumerFactory());
+        factory.setConcurrency(2);
+        factory.setBatchListener(false); // 이벤트 단위 처리
 
         return factory;
     }

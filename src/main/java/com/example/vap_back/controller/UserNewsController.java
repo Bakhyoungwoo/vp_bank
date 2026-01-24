@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.http.HttpStatus;
+import com.example.vap_back.kafka.NewsCrawlProducer;
 
 import java.util.List;
 import java.util.Map;
@@ -22,7 +23,7 @@ public class UserNewsController {
 
     private final UserInterestService userInterestService;
     private final NewsRedisService newsRedisService;
-
+    private final NewsCrawlProducer newsCrawlProducer;
     // 뉴스 클릭
     @PostMapping("/click")
     public ResponseEntity<?> recordClick(
@@ -68,5 +69,15 @@ public class UserNewsController {
                 userId, result.size());
 
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/category")
+    public ResponseEntity<?> getNewsByCategory(
+            @RequestParam String category
+    ) {
+        List<Map<String, Object>> news =
+                newsRedisService.getLatestArticles(category, 20);
+
+        return ResponseEntity.ok(news);
     }
 }
