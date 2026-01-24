@@ -30,3 +30,16 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+# actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+# logging 설정
+logging:
+  level:
+    root: INFO
+    com.example.vap_back: DEBUG
