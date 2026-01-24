@@ -1,6 +1,7 @@
 package com.example.vap_back.config;
 
 import com.example.vap_back.dto.NewsCrawlEvent;
+import com.example.vap_back.dto.UserEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -23,53 +24,56 @@ public class KafkaConfig {
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
-
-    /* =========================
-       기존 STRING Kafka (유지)
-       ========================= */
-
+    
+    // UserEvent Kafka (users-topic)
     @Bean
-    public ProducerFactory<String, String> producerFactory() {
+    public ProducerFactory<String, UserEvent> userProducerFactory() {
         Map<String, Object> config = new HashMap<>();
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        config.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
-        config.put(ProducerConfig.LINGER_MS_CONFIG, 10);
-        config.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
+        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
         return new DefaultKafkaProducerFactory<>(config);
     }
 
     @Bean
-    public KafkaTemplate<String, String> kafkaTemplate() {
-        return new KafkaTemplate<>(producerFactory());
+    public KafkaTemplate<String, UserEvent> userKafkaTemplate() {
+        return new KafkaTemplate<>(userProducerFactory());
     }
 
     @Bean
-    public ConsumerFactory<String, String> consumerFactory() {
+    public ConsumerFactory<String, UserEvent> userConsumerFactory() {
+        JsonDeserializer<UserEvent> deserializer =
+                new JsonDeserializer<>(UserEvent.class);
+        deserializer.addTrustedPackages("*");
+
         Map<String, Object> config = new HashMap<>();
         config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        config.put(ConsumerConfig.GROUP_ID_CONFIG, "user-group");
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, "users-group");
         config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        return new DefaultKafkaConsumerFactory<>(config);
+        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+
+        return new DefaultKafkaConsumerFactory<>(
+                config,
+                new StringDeserializer(),
+                deserializer
+        );
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, String>
-    kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, String> factory =
+    public ConcurrentKafkaListenerContainerFactory<String, UserEvent>
+    userKafkaListenerContainerFactory() {
+
+        ConcurrentKafkaListenerContainerFactory<String, UserEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(consumerFactory());
-        factory.setConcurrency(3);
-        factory.setBatchListener(true);
+
+        factory.setConsumerFactory(userConsumerFactory());
+        factory.setConcurrency(1);
+        factory.setBatchListener(false);
+
         return factory;
     }
 
-    /* =========================
-       🔥 NewsCrawlEvent 전용 Kafka
-       ========================= */
-
+    // NewsCrawlEvent Kafka
     @Bean
     public ProducerFactory<String, NewsCrawlEvent> newsCrawlProducerFactory() {
         Map<String, Object> config = new HashMap<>();
@@ -94,7 +98,7 @@ public class KafkaConfig {
         config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         config.put(ConsumerConfig.GROUP_ID_CONFIG, "news-crawler-group");
         config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializer);
+        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
 
         return new DefaultKafkaConsumerFactory<>(
                 config,
@@ -112,7 +116,7 @@ public class KafkaConfig {
 
         factory.setConsumerFactory(newsCrawlConsumerFactory());
         factory.setConcurrency(2);
-        factory.setBatchListener(false); // 이벤트 단위 처리
+        factory.setBatchListener(false);
 
         return factory;
     }
