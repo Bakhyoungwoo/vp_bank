@@ -24,7 +24,7 @@ public class NewsRedisService {
 
     // 명시적 카테고리
     private static final List<String> CATEGORIES =
-            List.of("economy", "society", "it");
+            List.of("economy", "society", "it", "politics", "world", "culture");
 
     // Redis 연결 확인
     @PostConstruct
@@ -229,5 +229,50 @@ public class NewsRedisService {
 
         log.info("Articles saved to Redis. category={}, count={}",
                 category, articles.size());
+    }
+
+    public List<Map<String, Object>> getTopKeywords(String category) {
+        String key = "trend:" + category.toLowerCase() + ":scores";
+
+        // size 먼저 확인 (디버깅용)
+        Long size = redisTemplate.opsForZSet().size(key);
+        log.info("[KEYWORD SIZE] {} = {}", key, size);
+
+        if (size == null || size == 0) {
+            log.warn("[KEYWORD EMPTY] {}", key);
+            return Collections.emptyList();
+        }
+
+        // 모든 키워드 + 점수 조회
+        Set<ZSetOperations.TypedTuple<String>> tuples =
+                redisTemplate.opsForZSet()
+                        .rangeWithScores(key, 0, -1);
+
+        if (tuples == null || tuples.isEmpty()) {
+            log.warn("[KEYWORD EMPTY AFTER RANGE] {}", key);
+            return Collections.emptyList();
+        }
+
+        // 점수 기준 내림차순 정렬
+        return tuples.stream()
+                .filter(t -> t.getValue() != null && t.getScore() != null)
+                .sorted((a, b) -> Double.compare(b.getScore(), a.getScore()))
+                .limit(10)
+                .map(t -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("keyword", t.getValue());
+                    map.put("score", t.getScore().intValue());
+                    return map;
+                })
+                .collect(Collectors.toList());
+    }
+    @PostConstruct
+    public void debugRedis() {
+        log.info("[REDIS CHECK] ping={}",
+                redisTemplate.getConnectionFactory()
+                        .getConnection().ping());
+
+        log.info("[REDIS CHECK] exists trend:it:scores = {}",
+                redisTemplate.hasKey("trend:it:scores"));
     }
 }
