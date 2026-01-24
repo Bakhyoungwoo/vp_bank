@@ -1,6 +1,6 @@
 package com.example.vap_back.kafka;
 
-import com.example.vap_back.Entity.User;
+import com.example.vap_back.dto.UserEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
@@ -9,14 +9,17 @@ import org.springframework.stereotype.Service;
 @Service
 public class UserConsumer {
 
-    @KafkaListener(topics = "users-topic", groupId = "users-group")
-    public void consume(User user) {
+    @KafkaListener(
+            topics = "users-topic",
+            groupId = "users-group",
+            containerFactory = "userKafkaListenerContainerFactory"
+    )
+    public void consume(UserEvent event) {
         log.info("======================================");
-        log.info("📥 [Kafka] User Created Event Received");
-        log.info("ID        : {}", user.getId());
-        log.info("Name      : {}", user.getName());
-        log.info("Department: {}", user.getDepartment());
-
+        log.info("📥 [Kafka] User Event Received");
+        log.info("User ID : {}", event.getUserId());
+        log.info("Email   : {}", event.getEmail());
+        log.info("Action  : {}", event.getAction());
         log.info("======================================");
     }
 }
