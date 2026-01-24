@@ -39,6 +39,7 @@ public class SecurityConfig {
                                 "/api/news/click"
                         ).permitAll()
                         .requestMatchers("/api/news/recommend").authenticated()
+                        .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(
