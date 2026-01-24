@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase; // 필수 Import
 import org.springframework.transaction.event.TransactionalEventListener; // 필수 Import
 
-@Slf4j // log 변수 자동 생성
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class UserProducer {

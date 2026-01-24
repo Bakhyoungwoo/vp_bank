@@ -13,7 +13,7 @@ spring:
       hibernate:
         format_sql: true
 
-  # Redis 설정 추가
+  # Redis 설정
   data:
     redis:
       host: localhost
@@ -21,7 +21,7 @@ spring:
       database: 0
 
   kafka:
-    bootstrap-servers: localhost:29092 # 로컬 테스트 시 29092 사용
+    bootstrap-servers: localhost:29092
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -31,15 +31,11 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
-# actuator 설정
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics
-
 # logging 설정
 logging:
   level:
     root: INFO
     com.example.vap_back: DEBUG
+
+jwt:
+  secret: "v7S8yB6pXW4v9zK2m5N8w3Q6r9yB6EPHMcQfTjWnZr4u7xACFJaNdRgUkX123456"

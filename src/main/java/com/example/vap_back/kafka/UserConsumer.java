@@ -1,20 +1,22 @@
 package com.example.vap_back.kafka;
 
 import com.example.vap_back.Entity.User;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 public class UserConsumer {
 
     @KafkaListener(topics = "users-topic", groupId = "users-group")
     public void consume(User user) {
+        log.info("======================================");
+        log.info("📥 [Kafka] User Created Event Received");
+        log.info("ID        : {}", user.getId());
+        log.info("Name      : {}", user.getName());
+        log.info("Department: {}", user.getDepartment());
 
-        System.out.println("======================================");
-        System.out.println("📥 [Kafka] User Created Event Received");
-        System.out.println("ID        : " + user.getId());
-        System.out.println("Name      : " + user.getName());
-        System.out.println("Department: " + user.getDepartment());
-        System.out.println("======================================");
+        log.info("======================================");
     }
 }
