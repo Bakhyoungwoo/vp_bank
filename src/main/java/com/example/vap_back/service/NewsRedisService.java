@@ -50,7 +50,7 @@ public class NewsRedisService {
 
     // 클릭 로그 저장
     public void addClickLog(Long userId, List<String> keywords) {
-        String key = "user:" + userId + ":interests";
+        String key = "user:" + userId + ":keywords";
 
         for (String keyword : keywords) {
             if (keyword == null || keyword.isBlank()) continue;
@@ -62,12 +62,14 @@ public class NewsRedisService {
 
         log.debug("[REDIS] Click log saved. userId={}, keywords={}",
                 userId, keywords);
+        log.info("[REDIS DEBUG] key={}, keyword={}",
+                key, keywords);
     }
 
     // 유저 상위 관심 키워드
     public Set<String> getTopInterests(Long userId, int limit) {
         return redisTemplate.opsForZSet()
-                .reverseRange("user:" + userId + ":interests", 0, limit - 1);
+                .reverseRange("user:" + userId + ":keywords", 0, limit - 1);
     }
 
     // 최신 기사 조회
@@ -106,8 +108,9 @@ public class NewsRedisService {
         Set<ZSetOperations.TypedTuple<String>> interests =
                 redisTemplate.opsForZSet()
                         .reverseRangeWithScores(
-                                "user:" + userId + ":interests", 0, 19);
-
+                                "user:" + userId + ":keywords",
+                                0, 19
+                        );
         if (interests != null) {
             for (ZSetOperations.TypedTuple<String> t : interests) {
                 if (t.getValue() != null && t.getScore() != null) {
