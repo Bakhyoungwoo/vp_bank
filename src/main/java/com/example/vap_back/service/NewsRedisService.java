@@ -9,10 +9,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
-
+import org.springframework.data.redis.core.RedisTemplate;
 import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 @Slf4j
 @Service
@@ -21,7 +22,8 @@ public class NewsRedisService {
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
-
+    @Qualifier("stringZSetRedisTemplate")
+    private final RedisTemplate<String, String> stringZSetRedisTemplate;
     // 명시적 카테고리
     private static final List<String> CATEGORIES =
             List.of("economy", "society", "it", "politics", "world", "culture");
@@ -234,38 +236,29 @@ public class NewsRedisService {
     public List<Map<String, Object>> getTopKeywords(String category) {
         String key = "trend:" + category.toLowerCase() + ":scores";
 
-        // size 먼저 확인 (디버깅용)
-        Long size = redisTemplate.opsForZSet().size(key);
-        log.info("[KEYWORD SIZE] {} = {}", key, size);
+        Set<ZSetOperations.TypedTuple<String>> tuples =
+                stringZSetRedisTemplate.opsForZSet()
+                        .reverseRangeWithScores(key, 0, 9);
 
-        if (size == null || size == 0) {
+        if (tuples == null || tuples.isEmpty()) {
             log.warn("[KEYWORD EMPTY] {}", key);
             return Collections.emptyList();
         }
 
-        // 모든 키워드 + 점수 조회
-        Set<ZSetOperations.TypedTuple<String>> tuples =
-                redisTemplate.opsForZSet()
-                        .rangeWithScores(key, 0, -1);
+        log.info("[KEYWORD COUNT] {} = {}", key, tuples.size());
 
-        if (tuples == null || tuples.isEmpty()) {
-            log.warn("[KEYWORD EMPTY AFTER RANGE] {}", key);
-            return Collections.emptyList();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (var t : tuples) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("keyword", t.getValue());
+            map.put("score", t.getScore().intValue());
+            result.add(map);
         }
 
-        // 점수 기준 내림차순 정렬
-        return tuples.stream()
-                .filter(t -> t.getValue() != null && t.getScore() != null)
-                .sorted((a, b) -> Double.compare(b.getScore(), a.getScore()))
-                .limit(10)
-                .map(t -> {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("keyword", t.getValue());
-                    map.put("score", t.getScore().intValue());
-                    return map;
-                })
-                .collect(Collectors.toList());
+        return result;
     }
+
+
     @PostConstruct
     public void debugRedis() {
         log.info("[REDIS CHECK] ping={}",

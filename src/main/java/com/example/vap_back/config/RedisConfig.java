@@ -51,11 +51,11 @@ public class RedisConfig {
     }
 
     // Keyword / ZSET / String
-    @Bean
-    public StringRedisTemplate stringRedisTemplate(
+    @Bean(name = "stringZSetRedisTemplate")
+    public RedisTemplate<String, String> stringZSetRedisTemplate(
             RedisConnectionFactory connectionFactory
     ) {
-        StringRedisTemplate template = new StringRedisTemplate();
+        RedisTemplate<String, String> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
         StringRedisSerializer utf8 =
@@ -66,6 +66,7 @@ public class RedisConfig {
         template.setHashKeySerializer(utf8);
         template.setHashValueSerializer(utf8);
 
+        template.afterPropertiesSet();
         return template;
     }
 
