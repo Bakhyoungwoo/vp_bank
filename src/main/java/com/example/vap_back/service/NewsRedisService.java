@@ -9,26 +9,24 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
-import org.springframework.data.redis.core.RedisTemplate;
+
 import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
-import org.springframework.beans.factory.annotation.Qualifier;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class NewsRedisService {
 
+    // redis 접근
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
-    @Qualifier("stringZSetRedisTemplate")
-    private final RedisTemplate<String, String> stringZSetRedisTemplate;
-    // 명시적 카테고리
+
     private static final List<String> CATEGORIES =
             List.of("economy", "society", "it", "politics", "world", "culture");
 
-    // Redis 연결 확인
+    // redis 연결 확인
     @PostConstruct
     public void checkConnection() {
         log.info("======= [REDIS CONNECTION CHECK] =======");
@@ -37,36 +35,33 @@ public class NewsRedisService {
                     .getConnection().ping();
             log.info("Redis Ping: {}", ping);
 
-            for (String category : CATEGORIES) {
-                String key = "trend:" + category + ":articles";
-                Long size = redisTemplate.opsForList().size(key);
-                log.debug("Redis key={} size={}", key, size);
-            }
+            log.info("exists trend:it:scores = {}",
+                    redisTemplate.hasKey("trend:it:scores"));
         } catch (Exception e) {
             log.error("Redis connection check failed", e);
         }
         log.info("========================================");
     }
 
-    // 클릭 로그 저장
+    // 클릭 로그
     public void addClickLog(Long userId, List<String> keywords) {
         String key = "user:" + userId + ":keywords";
 
         for (String keyword : keywords) {
             if (keyword == null || keyword.isBlank()) continue;
-            redisTemplate.opsForZSet()
+
+            Double score = redisTemplate.opsForZSet()
                     .incrementScore(key, keyword.trim(), 1.0);
+
+            log.info("[REDIS WRITE] key={}, keyword={}, score={}",
+                    key, keyword, score);
         }
 
         redisTemplate.expire(key, Duration.ofDays(30));
-
-        log.debug("[REDIS] Click log saved. userId={}, keywords={}",
-                userId, keywords);
-        log.info("[REDIS DEBUG] key={}, keyword={}",
-                key, keywords);
     }
 
-    // 유저 상위 관심 키워드
+
+    // 상위 키워드
     public Set<String> getTopInterests(Long userId, int limit) {
         return redisTemplate.opsForZSet()
                 .reverseRange("user:" + userId + ":keywords", 0, limit - 1);
@@ -80,9 +75,9 @@ public class NewsRedisService {
         List<String> rawArticles =
                 redisTemplate.opsForList().range(key, 0, limit - 1);
 
-        if (rawArticles == null) {
-            log.debug("No articles found in Redis. category={}", category);
-            return List.of();
+        if (rawArticles == null || rawArticles.isEmpty()) {
+            log.debug("No articles found. category={}", category);
+            return new ArrayList<>();
         }
 
         return rawArticles.stream().map(json -> {
@@ -91,7 +86,7 @@ public class NewsRedisService {
                         json,
                         new TypeReference<Map<String, Object>>() {});
             } catch (JsonProcessingException e) {
-                log.warn("Article JSON parse failed. category={}", category, e);
+                log.warn("Article JSON parse failed", e);
                 Map<String, Object> error = new HashMap<>();
                 error.put("error", "JSON 파싱 실패");
                 return error;
@@ -99,7 +94,7 @@ public class NewsRedisService {
         }).collect(Collectors.toList());
     }
 
-    // 사용자 행동 기반 추천 (핵심)
+    // 사용자 행동기반 추천
     public List<Map<String, Object>> recommendArticles(
             Long userId, int limit) {
 
@@ -111,6 +106,7 @@ public class NewsRedisService {
                                 "user:" + userId + ":keywords",
                                 0, 19
                         );
+
         if (interests != null) {
             for (ZSetOperations.TypedTuple<String> t : interests) {
                 if (t.getValue() != null && t.getScore() != null) {
@@ -135,20 +131,17 @@ public class NewsRedisService {
                                     json,
                                     new TypeReference<Map<String, Object>>() {});
                     allArticles.add(article);
-                } catch (Exception e) {
-                    log.debug("Skip invalid article JSON. category={}", category);
-                }
+                } catch (Exception ignored) {}
             }
         }
 
-        List<Map<String, Object>> scoredArticles = new ArrayList<>();
+        List<Map<String, Object>> scored = new ArrayList<>();
 
         for (Map<String, Object> article : allArticles) {
-
             Object kwObj = article.get("keywords");
             if (!(kwObj instanceof Collection<?> col)) continue;
 
-            double score = 0.0;
+            double score = 0;
             List<String> matched = new ArrayList<>();
 
             for (Object o : col) {
@@ -164,94 +157,42 @@ public class NewsRedisService {
                 Map<String, Object> result = new HashMap<>(article);
                 result.put("score", score);
                 result.put("matchedKeywords", matched);
-                scoredArticles.add(result);
+                scored.add(result);
             }
         }
 
-        List<Map<String, Object>> result = scoredArticles.stream()
-                .sorted((a, b) ->
-                        Double.compare(
-                                (double) b.get("score"),
-                                (double) a.get("score")
-                        ))
-                .limit(limit)
-                .collect(Collectors.toList());
-
-        if (result.isEmpty()) {
+        if (scored.isEmpty()) {
             log.info("[RECOMMEND] fallback to latest articles. userId={}", userId);
             return allArticles.stream()
                     .limit(limit)
                     .collect(Collectors.toList());
         }
 
-        return result;
+        return scored.stream()
+                .sorted((a, b) ->
+                        Double.compare(
+                                (double) b.get("score"),
+                                (double) a.get("score")))
+                .limit(limit)
+                .collect(Collectors.toList());
     }
 
-    // 크롤링 중인지 확인
-    public boolean isCrawling(String category) {
-        return Boolean.TRUE.equals(
-                redisTemplate.hasKey("crawl:lock:" + category)
-        );
-    }
-
-    // 크롤링 시작 표시
-    public void markCrawling(String category) {
-        redisTemplate.opsForValue()
-                .set("crawl:lock:" + category, "1", Duration.ofMinutes(3));
-        log.debug("Crawling lock set. category={}", category);
-    }
-
-    // 크롤링 종료
-    public void clearCrawling(String category) {
-        redisTemplate.delete("crawl:lock:" + category);
-        log.debug("Crawling lock cleared. category={}", category);
-    }
-
-    public void crawlAndSave(String category, List<Map<String, Object>> articles) {
-
-        String key = "trend:" + category.toLowerCase() + ":articles";
-
-        // 기존 기사 삭제
-        redisTemplate.delete(key);
-
-        if (articles == null || articles.isEmpty()) {
-            log.warn("No articles to save. category={}", category);
-            return;
-        }
-
-        // 최신 기사 저장
-        for (Map<String, Object> article : articles) {
-            try {
-                String json = objectMapper.writeValueAsString(article);
-                redisTemplate.opsForList().rightPush(key, json);
-            } catch (JsonProcessingException e) {
-                log.warn("Failed to serialize article. category={}", category, e);
-            }
-        }
-
-        // TTL 설정 (예: 10분)
-        redisTemplate.expire(key, Duration.ofMinutes(10));
-
-        log.info("Articles saved to Redis. category={}, count={}",
-                category, articles.size());
-    }
-
+    // 키워드
     public List<Map<String, Object>> getTopKeywords(String category) {
         String key = "trend:" + category.toLowerCase() + ":scores";
 
         Set<ZSetOperations.TypedTuple<String>> tuples =
-                stringZSetRedisTemplate.opsForZSet()
+                redisTemplate.opsForZSet()
                         .reverseRangeWithScores(key, 0, 9);
 
         if (tuples == null || tuples.isEmpty()) {
             log.warn("[KEYWORD EMPTY] {}", key);
-            return Collections.emptyList();
+            return new ArrayList<>();
         }
 
-        log.info("[KEYWORD COUNT] {} = {}", key, tuples.size());
-
         List<Map<String, Object>> result = new ArrayList<>();
-        for (var t : tuples) {
+
+        for (ZSetOperations.TypedTuple<String> t : tuples) {
             Map<String, Object> map = new HashMap<>();
             map.put("keyword", t.getValue());
             map.put("score", t.getScore().intValue());
@@ -261,14 +202,36 @@ public class NewsRedisService {
         return result;
     }
 
+    // 크롤링 로직
+    public boolean isCrawling(String category) {
+        return Boolean.TRUE.equals(
+                redisTemplate.hasKey("crawl:lock:" + category)
+        );
+    }
 
-    @PostConstruct
-    public void debugRedis() {
-        log.info("[REDIS CHECK] ping={}",
-                redisTemplate.getConnectionFactory()
-                        .getConnection().ping());
+    public void markCrawling(String category) {
+        redisTemplate.opsForValue()
+                .set("crawl:lock:" + category, "1", Duration.ofMinutes(3));
+    }
 
-        log.info("[REDIS CHECK] exists trend:it:scores = {}",
-                redisTemplate.hasKey("trend:it:scores"));
+    public void clearCrawling(String category) {
+        redisTemplate.delete("crawl:lock:" + category);
+    }
+
+    public void crawlAndSave(String category, List<Map<String, Object>> articles) {
+
+        String key = "trend:" + category.toLowerCase() + ":articles";
+        redisTemplate.delete(key);
+
+        if (articles == null || articles.isEmpty()) return;
+
+        for (Map<String, Object> article : articles) {
+            try {
+                redisTemplate.opsForList()
+                        .rightPush(key, objectMapper.writeValueAsString(article));
+            } catch (JsonProcessingException ignored) {}
+        }
+
+        redisTemplate.expire(key, Duration.ofMinutes(10));
     }
 }
