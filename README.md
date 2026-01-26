@@ -39,13 +39,14 @@ AI 키워드 추출을 통한 뉴스 트렌드 분석을 제공하는 시스템�
 
 ---
 
-### 데이터 수집
-
-| 구분 | 기술 |
-|---|---|
-| Crawling | Python |
-| Static Page | Requests / BeautifulSoup |
-| Dynamic Page | Selenium |
+### AI
+- **Keyword Extraction** - KeyBERT
+- **Embedding Model** - Sentence-BERT (KR-SBERT, KLUE-NLI)
+- **NLP Preprocessing** - KoNLPy (Okt)
+- **AI Server** - FastAPI (Python)
+- **Crawling** - Python
+  - **Static Page** - Requests / BeautifulSoup 
+  - **Dynamic Page** - Selenium 
 
 ---
 
