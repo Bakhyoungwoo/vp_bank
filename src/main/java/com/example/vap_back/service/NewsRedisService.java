@@ -1,5 +1,7 @@
 package com.example.vap_back.service;
 
+import com.example.vap_back.Entity.News;
+import com.example.vap_back.repository.NewsRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,6 +23,7 @@ public class NewsRedisService {
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final NewsRepository newsRepository; // 🔥 DB 접근을 위해 추가
 
     private static final List<String> CATEGORIES =
             List.of("economy", "society", "it", "politics", "world", "culture");
@@ -29,7 +32,6 @@ public class NewsRedisService {
     public void checkConnection() {
         log.info("======= [REDIS CONNECTION CHECK] =======");
         try {
-            // 간단한 핑 테스트
             String ping = Objects.requireNonNull(redisTemplate.getConnectionFactory())
                     .getConnection().ping();
             log.info("Redis Ping: {}", ping);
@@ -39,22 +41,14 @@ public class NewsRedisService {
         log.info("========================================");
     }
 
-    // 사용자 클릭 로그 저장 (비동기 처리 대상)
+    // 사용자 클릭 로그 저장
     public void addClickLog(Long userId, List<String> keywords) {
-        // 키 이름 통일: user:{id}:keywords
         String key = "user:" + userId + ":keywords";
 
         for (String keyword : keywords) {
             if (keyword == null || keyword.isBlank()) continue;
-
-            // 점수 1.0 증가
-            Double score = redisTemplate.opsForZSet()
-                    .incrementScore(key, keyword.trim(), 1.0);
-
-            log.debug("[REDIS WRITE] key={}, keyword={}, newScore={}", key, keyword, score);
+            redisTemplate.opsForZSet().incrementScore(key, keyword.trim(), 1.0);
         }
-
-        // 데이터 유효기간 30일 갱신
         redisTemplate.expire(key, Duration.ofDays(30));
     }
 
@@ -64,24 +58,60 @@ public class NewsRedisService {
                 .reverseRange("user:" + userId + ":keywords", 0, limit - 1);
     }
 
-    // 카테고리별 최신 기사 조회 (단순 목록)
+    // cashing aside
     public List<Map<String, Object>> getLatestArticles(String category, int limit) {
         String key = "trend:" + category.toLowerCase() + ":articles";
+
+        // Redis 조회
         List<String> rawArticles = redisTemplate.opsForList().range(key, 0, limit - 1);
 
-        if (rawArticles == null || rawArticles.isEmpty()) {
+        if (rawArticles != null && !rawArticles.isEmpty()) {
+            log.debug("[CACHE HIT] Redis에서 {} 뉴스 조회", category);
+            return rawArticles.stream()
+                    .map(this::parseJsonToMap)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+        }
+
+        // Redis Miss시에 DB 조회
+        log.info("[CACHE MISS] DB에서 {} 뉴스 조회 및 캐싱 시도", category);
+
+        // DB에서 최신순 50개
+        List<News> dbNewsList = newsRepository.findTop50ByCategoryOrderByPublishedAtDesc(category);
+
+        if (dbNewsList.isEmpty()) {
             return new ArrayList<>();
         }
 
-        return rawArticles.stream().map(this::parseJsonToMap)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+        // DB 데이터를 Redis에 캐싱
+        List<Map<String, Object>> resultList = new ArrayList<>();
+        List<String> jsonList = new ArrayList<>();
+
+        for (News news : dbNewsList) {
+            Map<String, Object> map = convertEntityToMap(news);
+            resultList.add(map);
+            try {
+                jsonList.add(objectMapper.writeValueAsString(map));
+            } catch (JsonProcessingException e) {
+                log.error("JSON 변환 에러", e);
+            }
+        }
+
+        if (!jsonList.isEmpty()) {
+            // 기존 키 삭제 후 새로 캐싱
+            redisTemplate.delete(key);
+            redisTemplate.opsForList().rightPushAll(key, jsonList);
+            redisTemplate.expire(key, Duration.ofMinutes(10)); // 10분 TTL
+        }
+
+        // 요청한 limit 만큼 반환
+        return resultList.stream().limit(limit).collect(Collectors.toList());
     }
 
     // 사용자 개인화 추천 로직
     public List<Map<String, Object>> recommendArticles(Long userId, int limit) {
 
-        // 1. 사용자 관심사 가져오기
+        // 사용자 관심사 가져오기
         String userKey = "user:" + userId + ":keywords";
         Map<String, Double> userKeywordScore = new HashMap<>();
 
@@ -97,27 +127,17 @@ public class NewsRedisService {
         }
 
         if (userKeywordScore.isEmpty()) {
-            log.info("[RECOMMEND] 사용자 관심 키워드가 없습니다. (User ID: {})", userId);
             return getLatestArticles("it", limit);
         }
 
-        // [디버깅 로그 1] 사용자가 가진 키워드 출력
-        log.info("[DEBUG] User Interest Keywords: {}", userKeywordScore.keySet());
-
-        // 2. 뉴스 기사 풀 가져오기
+        // 뉴스 기사 풀 가져오기 (Redis에 없으면 DB에서 가져옴)
         List<Map<String, Object>> candidateArticles = new ArrayList<>();
         for (String category : CATEGORIES) {
-            String key = "trend:" + category + ":articles";
-            List<String> rawList = redisTemplate.opsForList().range(key, 0, 49);
-            if (rawList != null) {
-                for (String json : rawList) {
-                    Map<String, Object> article = parseJsonToMap(json);
-                    if (article != null) candidateArticles.add(article);
-                }
-            }
+            List<Map<String, Object>> articles = getLatestArticles(category, 50);
+            candidateArticles.addAll(articles);
         }
 
-        // 3. 매칭 점수 계산
+        // 매칭 점수 계산
         List<Map<String, Object>> scoredArticles = new ArrayList<>();
 
         for (Map<String, Object> article : candidateArticles) {
@@ -129,12 +149,7 @@ public class NewsRedisService {
             List<String> matched = new ArrayList<>();
 
             for (Object k : articleKeywords) {
-                // 공백 제거 후 비교
                 String keyword = String.valueOf(k).trim();
-
-                // [디버깅 로그 2 - 너무 많으면 주석 처리]
-                // log.debug("Comparing UserKW: {} vs ArticleKW: {}", userKeywordScore.keySet(), keyword);
-
                 if (userKeywordScore.containsKey(keyword)) {
                     totalScore += userKeywordScore.get(keyword);
                     matched.add(keyword);
@@ -142,9 +157,6 @@ public class NewsRedisService {
             }
 
             if (totalScore > 0) {
-                // [디버깅 로그 3] 매칭 성공 시 로그
-                log.info("[MATCHED] Article: '{}', Keywords: {}", article.get("title"), matched);
-
                 Map<String, Object> result = new HashMap<>(article);
                 result.put("score", totalScore);
                 result.put("matchedKeywords", matched);
@@ -152,9 +164,8 @@ public class NewsRedisService {
             }
         }
 
-        // 4. 결과 반환
+        // 결과 반환
         if (scoredArticles.isEmpty()) {
-            log.info("[RECOMMEND] No matched articles for user={}. Fallback to latest.", userId);
             return getLatestArticles("it", limit);
         }
 
@@ -182,14 +193,53 @@ public class NewsRedisService {
         for (ZSetOperations.TypedTuple<String> t : tuples) {
             Map<String, Object> map = new HashMap<>();
             map.put("keyword", t.getValue());
-            // Double -> Int 변환 (null 체크 포함)
             map.put("score", t.getScore() != null ? t.getScore().intValue() : 0);
             result.add(map);
         }
         return result;
     }
 
-    // 크롤링 상태 관리 및 저장
+
+    // News Entity -> Map 변환 (JSON 직렬화용)
+    private Map<String, Object> convertEntityToMap(News news) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("title", news.getTitle());
+        map.put("url", news.getUrl());
+        map.put("press", news.getPress());
+        map.put("time", news.getPublishedAt() != null ? news.getPublishedAt().toString() : null);
+
+        try {
+            String dbKeywords = news.getKeywords();
+
+            if (dbKeywords != null && !dbKeywords.isBlank() && !dbKeywords.equals("[]")) {
+                // JSON 문자열 파싱
+                List<String> kwList = objectMapper.readValue(
+                        dbKeywords,
+                        new TypeReference<List<String>>() {}
+                );
+                map.put("keywords", kwList);
+            } else {
+                // 키워드가 없으면 빈 리스트
+                map.put("keywords", new ArrayList<>());
+            }
+        } catch (Exception e) {
+            // 파싱 실패 시 로그 남기고 빈 리스트 처리
+            log.warn("[JSON PARSE ERROR] id={}, data={}", news.getId(), news.getKeywords());
+            map.put("keywords", new ArrayList<>());
+        }
+
+        return map;
+    }
+
+    private Map<String, Object> parseJsonToMap(String json) {
+        try {
+            return objectMapper.readValue(json, new TypeReference<>() {});
+        } catch (JsonProcessingException e) {
+            log.warn("JSON parse failed: {}", json, e);
+            return null;
+        }
+    }
+
     public boolean isCrawling(String category) {
         return Boolean.TRUE.equals(redisTemplate.hasKey("crawl:lock:" + category));
     }
@@ -223,16 +273,6 @@ public class NewsRedisService {
         if (!jsonList.isEmpty()) {
             redisTemplate.opsForList().rightPushAll(key, jsonList);
             redisTemplate.expire(key, Duration.ofMinutes(10)); // 캐시 10분
-        }
-    }
-
-    // JSON 파싱 헬퍼 메서드
-    private Map<String, Object> parseJsonToMap(String json) {
-        try {
-            return objectMapper.readValue(json, new TypeReference<>() {});
-        } catch (JsonProcessingException e) {
-            log.warn("JSON parse failed: {}", json, e);
-            return null;
         }
     }
 }
