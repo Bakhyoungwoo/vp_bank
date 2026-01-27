@@ -51,6 +51,11 @@ public class UserService {
         return jwtTokenProvider.createToken(user.getEmail());
     }
 
+    public User getUserByEmail(String email) {
+        return repository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
+    }
+
     public List<User> findAll() {
         return repository.findAll();
     }
