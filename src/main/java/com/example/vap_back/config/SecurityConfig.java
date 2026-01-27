@@ -19,34 +19,35 @@ import java.util.List;
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-
     private final JwtTokenProvider jwtTokenProvider;
-
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // CORS 활성화
+                // CORS 설정 적용
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
+                // CSRF 비활성화 (POST 요청을 위해 필수)
                 .csrf(csrf -> csrf.disable())
+                // 세션 미사용 (JWT 사용)
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/users/login",
-                                "/api/users/signup",
-                                "/api/news/{category}",
-                                "/api/news/keywords/**",
-                                "/api/internal/**"
-                        ).permitAll()
+                        // 개인화 기능
                         .requestMatchers(
                                 "/api/news/recommend",
                                 "/api/news/click"
                         ).authenticated()
-                        .requestMatchers("/actuator/**").permitAll()
+                        // 크롤러, SSE, 조회, 회원가입
+                        .requestMatchers(
+                                "/api/users/**",
+                                "/api/news/**",
+                                "/api/notifications/**",
+                                "/api/internal/**",
+                                "/actuator/**"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
+                // JWT 필터 추가
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenProvider),
                         UsernamePasswordAuthenticationFilter.class
@@ -54,8 +55,6 @@ public class SecurityConfig {
 
         return http.build();
     }
-
-    // Spring Security 6.x / Boot 3.x 호환 CORS 설정
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
@@ -65,15 +64,13 @@ public class SecurityConfig {
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
     }
+
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
-
 }
