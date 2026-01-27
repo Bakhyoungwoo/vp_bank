@@ -9,6 +9,11 @@ import java.time.LocalDateTime;
         name = "news",
         uniqueConstraints = {
                 @UniqueConstraint(columnNames = "url")
+        },
+        // 카테고리별 조회, 시간순 조회를 빠르게 하기 위한 인덱스 설정
+        indexes = {
+                @Index(name = "idx_category", columnList = "category"),
+                @Index(name = "idx_published_at", columnList = "publishedAt")
         }
 )
 @Getter
@@ -39,11 +44,18 @@ public class News {
 
     private LocalDateTime publishedAt;
 
+    @Column(columnDefinition = "TEXT")
+    private String keywords;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+    }
+
+    public void setKeywords(String keywords) {
+        this.keywords = keywords;
     }
 }
