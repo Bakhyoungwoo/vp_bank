@@ -8,6 +8,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 
 @Service
 @Slf4j
@@ -50,19 +51,20 @@ public class NotificationService {
     }
 
     // Kafka Consumer가 이 메서드를 호출
-    public void broadcast(String title) {
-        if (emitters.isEmpty()) {
-            log.info("📭 [SSE] No active clients to notify.");
-            return;
-        }
+    public void broadcast(String title, String url) {
+        if (emitters.isEmpty()) return;
+
+        // {"title": "...", "url": "..."} 형태로 전송
+        Map<String, String> eventData = new HashMap<>();
+        eventData.put("title", title);
+        eventData.put("url", url);
 
         emitters.forEach((userId, emitter) -> {
             try {
                 emitter.send(SseEmitter.event()
                         .name("news")
-                        .data("속보: " + title));
+                        .data(eventData)); // Map을 넣으면 자동으로 JSON 변환됨
             } catch (IOException e) {
-                // 전송 실패 시 연결이 끊긴 것으로 간주하고 제거
                 emitters.remove(userId);
             }
         });

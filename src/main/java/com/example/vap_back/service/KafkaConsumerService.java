@@ -27,8 +27,11 @@ public class KafkaConsumerService {
             JsonNode node = objectMapper.readTree(message);
             String title = node.get("title").asText();
 
+            // url
+            String url = node.has("url") ? node.get("url").asText() : "#";
+
             // 알림 서비스 호출
-            notificationService.broadcast(title);
+            notificationService.broadcast(title, url);
 
         } catch (Exception e) {
             log.error(" [Kafka Consume Error] 메시지 파싱 실패", e);
