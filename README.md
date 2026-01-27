@@ -18,40 +18,69 @@ AI 키워드 추출을 통한 뉴스 트렌드 분석을 제공하는 시스템�
 
 ## 기술 스택
 
-### Backend / Infrastructure
+### Backend (API & Security)
+- **Java 17** – Core backend language (LTS)
+- **Spring Boot 3.2.5** – Backend framework for RESTful APIs
+- **Spring Web** – HTTP request handling and controller layer
+- **Spring Data JPA (Hibernate)** – ORM-based database access
+- **Spring Security** – Authentication and authorization framework
+- **JWT (jjwt)** – Token-based authentication mechanism
 
-| 구분 | 기술 |
-|---|---|
-| Backend | Spring Boot (Java 17) |
-| Security | Spring Security + JWT |
-| Database | MySQL 8.0 |
-| Cache | Redis |
-| Event Streaming | Apache Kafka |
-| Realtime | WebSocket |
-| Container | Docker / Docker Compose |
+### Database & Cache
+- **MySQL 8.0** – Relational database for persistent data storage
+- **Redis 7** – In-memory data store for caching and fast access
 
----
+### Infrastructure & DevOps
+- **Apache Kafka** – Asynchronous event streaming and message processing
+- **Zookeeper** – Kafka cluster coordination and metadata management
 
-### AI / NLP
-
-| 구분 | 기술 |
-|---|---|
-| Keyword Extraction | KeyBERT |
-| Embedding Model | Sentence-BERT (KR-SBERT, KLUE-NLI) |
-| NLP Preprocessing | KoNLPy (Okt) |
-| AI Server | FastAPI (Python) |
+- **Docker (Compose)** – Containerization of application and infrastructure and Multi-container orchestration for local development
+- **GitHub Actions** – CI pipeline for build and Docker image automation
 
 ---
 
-### 데이터 수집
-
-| 구분 | 기술 |
-|---|---|
-| Crawling | Python |
-| Static Page | Requests / BeautifulSoup |
-| Dynamic Page | Selenium |
+### AI
+- **Keyword Extraction** - KeyBERT
+- **Embedding Model** - Sentence-BERT (KR-SBERT, KLUE-NLI)
+- **NLP Preprocessing** - KoNLPy (Okt)
+- **AI Server** - FastAPI (Python)
+- **Crawling** - Python
+  - **Static Page** - Requests / BeautifulSoup 
+  - **Dynamic Page** - Selenium 
 
 ---
+
 ## 시스템 아키텍처
-<img width="1536" height="1024" alt="VAP System Architecture" src="https://github.com/user-attachments/assets/02038672-2a00-45bd-b6a2-4050549d5d7c" />
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Web Client (HTML/JS)                     │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
+│  │   News Feed UI  │  │   Login/Auth    │  │  Click Logs  │ │
+│  └─────────────────┘  └─────────────────┘  └──────────────┘ │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ HTTP (REST API :8080)
+┌─────────────────────────▼───────────────────────────────────┐
+│                  Spring Boot Main Server                    │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
+│  │   User/News     │  │   Kafka Prod.   │  │   Kafka Cons.│ │
+│  │   Service       │  │   (Event Pub)   │  │   (Log Save) │ │
+│  └─────────────────┘  └─────────────────┘  └──────────────┘ │
+└─────────┬───────────────────────┬───────────────────────────┘
+          │ JPA / Redis Ops       │ Async Events (Topics)
+┌─────────▼───────────────────────▼───────────────────────────┐
+│                   Infrastructure Layer                      │
+│  ┌──────────────┐   ┌──────────────┐    ┌────────────────┐  │
+│  │    MySQL     │   │    Redis     │    │  Apache Kafka  │  │
+│  │ (User/News)  │   │ (Cache/Rank) │◀──▶│ (Msg Broker)   │  │
+│  └──────────────┘   └──────────────┘    └────────┬───────┘  │
+└──────────────────────────────────────────────────│──────────┘
+                                                   │ Crawl Req
+                                     ┌─────────────▼──────────┐
+                                     │  FastAPI AI Server     │
+                                     │ ┌─────────┐ ┌────────┐ │
+                                     │ │ Crawler │ │KeyBERT │ │
+                                     │ └─────────┘ └────────┘ │
+                                     └────────────────────────┘
+
 
