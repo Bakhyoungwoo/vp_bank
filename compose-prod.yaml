@@ -1,0 +1,115 @@
+version: "3.9"
+
+services:
+  # DB, Redis, Kafka
+  mysql:
+    image: mysql:8.0
+    container_name: vap-mysql
+    environment:
+      MYSQL_DATABASE: vapdb
+      MYSQL_USER: vap
+      MYSQL_PASSWORD: vap123
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vap-network
+
+  redis:
+    image: redis:7
+    container_name: vap-redis
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vap-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: vap-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - vap-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: vap-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    networks:
+      - vap-network
+
+  # 애플리케이션 (Spring, Python)
+  vap-spring:
+    # GitHub Action이 빌드해서 올릴 이미지 이름
+    image: ${DOCKER_USERNAME}/vap-spring:latest
+    container_name: vap-spring
+    ports:
+      - "8080:8080"
+    environment:
+      # 컨테이너 이름(mysql, redis, kafka)을 호스트로 사용
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/vapdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      - SPRING_REDIS_HOST=redis
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - vap-network
+
+  vap-python:
+    image: ${DOCKER_USERNAME}/vap-python:latest
+    container_name: vap-python
+    ports:
+      - "8000:8000"
+    environment:
+      - SPRING_HOST=vap-spring
+      - REDIS_HOST=redis
+    depends_on:
+      - vap-spring
+      - redis
+    networks:
+      - vap-network
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  vap-network:
+    driver: bridge

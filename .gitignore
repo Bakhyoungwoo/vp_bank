@@ -33,5 +33,11 @@ out/
 /nbdist/
 /.nb-gradle/
 
-### VS Code ###
-.vscode/
+# Python ignore rule
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Data files
+*.json
