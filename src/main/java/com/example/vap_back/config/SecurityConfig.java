@@ -41,6 +41,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/users/**",
                                 "/api/news/**",
+                                "/api/news/keywords/**",
                                 "/api/notifications/**",
                                 "/api/internal/**",
                                 "/actuator/**",
