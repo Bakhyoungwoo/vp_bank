@@ -13,8 +13,8 @@ public class NewsCreateRequest {
     private String content;
     private String url;
     private String press;
-    @JsonProperty("published_at")
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @JsonProperty("publishedAt")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss", timezone = "Asia/Seoul")
     private LocalDateTime publishedAt;
-    private List<String> keywords;
+    private String keywords;
 }
