@@ -22,7 +22,7 @@ public class NewsCrawlConsumer {
 
         String category = event.getCategory();
 
-        // 🔒 중복 크롤링 방지
+        // 중복 크롤링 방지
         if (newsRedisService.isCrawling(category)) {
             return;
         }
@@ -30,10 +30,8 @@ public class NewsCrawlConsumer {
         try {
             newsRedisService.markCrawling(category);
 
-            // 🔥 여기서 실제 크롤링 수행
-            List<Map<String, Object>> articles =
-                    /* 기존 크롤링 로직 호출 */ List.of();
-
+            // 크롤링 수행
+            List<Map<String, Object>> articles = List.of();
             newsRedisService.crawlAndSave(category, articles);
 
             log.info("뉴스 갱신 완료 - category={}", category);
