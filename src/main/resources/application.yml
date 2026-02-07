@@ -1,13 +1,14 @@
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3307/vapdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
-    username: vap
-    password: vap123
+    # 환경 변수가 있으면 사용하고, 없으면 로컬(3307)을 사용합니다.
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3307/vapdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul}
+    username: ${SPRING_DATASOURCE_USERNAME:vap}
+    password: ${SPRING_DATASOURCE_PASSWORD:vap123}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
@@ -16,12 +17,14 @@ spring:
   # Redis 설정
   data:
     redis:
-      host: 127.0.0.1
+      # 도커 환경에서는 서비스 명인 'redis'를 사용합니다.
+      host: ${SPRING_REDIS_HOST:127.0.0.1}
       port: 6379
       database: 0
 
   kafka:
-    bootstrap-servers: localhost:29092
+    # 도커 내부 통신 시에는 kafka:9092를 사용합니다.
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -31,6 +34,10 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
+  docker:
+    compose:
+      enabled: false
+
 # logging 설정
 logging:
   level:
@@ -38,4 +45,5 @@ logging:
     com.example.vap_back: DEBUG
 
 jwt:
-  secret: "v7S8yB6pXW4v9zK2m5N8w3Q6r9yB6EPHMcQfTjWnZr4u7xACFJaNdRgUkX123456"
+  # 보안을 위해 이 값도 환경 변수로 관리하는 것을 추천하지만, 우선 유지합니다.
+  secret: ${JWT_SECRET:v7S8yB6pXW4v9zK2m5N8w3Q6r9yB6EPHMcQfTjWnZr4u7xACFJaNdRgUkX123456}

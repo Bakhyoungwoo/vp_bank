@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+redis
+websockets
+requests
+beautifulsoup4
+keybert
+sentence-transformers
+konlpy
+apscheduler
