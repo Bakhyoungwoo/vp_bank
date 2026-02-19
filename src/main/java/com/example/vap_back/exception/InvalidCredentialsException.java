@@ -1,0 +1,7 @@
+package com.example.vap_back.exception;
+
+public class InvalidCredentialsException extends RuntimeException {
+    public InvalidCredentialsException() {
+        super("비밀번호가 일치하지 않습니다.");
+    }
+}
