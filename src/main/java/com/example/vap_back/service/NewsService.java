@@ -27,6 +27,11 @@ public class NewsService {
                 .findTop50ByCategoryOrderByPublishedAtDesc(category);
     }
 
+    // 키워드 검색 (DB)
+    public List<News> searchNews(String keyword) {
+        return newsRepository.findByTitleContainingOrderByPublishedAtDesc(keyword);
+    }
+
     // FastAPI → Spring 저장
     public void saveNews(NewsCreateRequest request) {
 

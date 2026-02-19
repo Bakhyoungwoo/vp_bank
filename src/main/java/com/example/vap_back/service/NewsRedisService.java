@@ -28,6 +28,12 @@ public class NewsRedisService {
     private static final List<String> CATEGORIES =
             List.of("economy", "society", "it", "politics", "world", "culture");
 
+    private static final int ARTICLES_PER_CATEGORY = 50;
+    private static final int TOP_USER_INTERESTS = 20;
+    private static final int TOP_KEYWORDS = 10;
+    private static final int DEFAULT_RECOMMEND_LIMIT = 5;
+    private static final Duration CACHE_TTL = Duration.ofMinutes(10);
+
     @PostConstruct
     public void checkConnection() {
         log.info("======= [REDIS CONNECTION CHECK] =======");
@@ -77,7 +83,7 @@ public class NewsRedisService {
         log.info("[CACHE MISS] DB에서 {} 뉴스 조회 및 캐싱 시도", category);
 
         // DB에서 최신순 50개
-        List<News> dbNewsList = newsRepository.findTop50ByCategoryOrderByPublishedAtDesc(category);
+        List<News> dbNewsList = newsRepository.findTop50ByCategoryOrderByPublishedAtDesc(category.toLowerCase());
 
         if (dbNewsList.isEmpty()) {
             return new ArrayList<>();
@@ -101,10 +107,9 @@ public class NewsRedisService {
             // 기존 키 삭제 후 새로 캐싱
             redisTemplate.delete(key);
             redisTemplate.opsForList().rightPushAll(key, jsonList);
-            redisTemplate.expire(key, Duration.ofMinutes(10)); // 10분 TTL
+            redisTemplate.expire(key, CACHE_TTL);
         }
 
-        // 요청한 limit 만큼 반환
         return resultList.stream().limit(limit).collect(Collectors.toList());
     }
 
@@ -116,7 +121,7 @@ public class NewsRedisService {
         Map<String, Double> userKeywordScore = new HashMap<>();
 
         Set<ZSetOperations.TypedTuple<String>> interests =
-                redisTemplate.opsForZSet().reverseRangeWithScores(userKey, 0, 19);
+                redisTemplate.opsForZSet().reverseRangeWithScores(userKey, 0, TOP_USER_INTERESTS - 1);
 
         if (interests != null) {
             for (ZSetOperations.TypedTuple<String> t : interests) {
@@ -133,7 +138,7 @@ public class NewsRedisService {
         // 뉴스 기사 풀 가져오기 (Redis에 없으면 DB에서 가져옴)
         List<Map<String, Object>> candidateArticles = new ArrayList<>();
         for (String category : CATEGORIES) {
-            List<Map<String, Object>> articles = getLatestArticles(category, 50);
+            List<Map<String, Object>> articles = getLatestArticles(category, ARTICLES_PER_CATEGORY);
             candidateArticles.addAll(articles);
         }
 
@@ -183,7 +188,7 @@ public class NewsRedisService {
     public List<Map<String, Object>> getTopKeywords(String category) {
         String key = "trend:" + category.toLowerCase() + ":scores";
         Set<ZSetOperations.TypedTuple<String>> tuples =
-                redisTemplate.opsForZSet().reverseRangeWithScores(key, 0, 9);
+                redisTemplate.opsForZSet().reverseRangeWithScores(key, 0, TOP_KEYWORDS - 1);
 
         if (tuples == null || tuples.isEmpty()) {
             return new ArrayList<>();
@@ -240,18 +245,6 @@ public class NewsRedisService {
         }
     }
 
-    public boolean isCrawling(String category) {
-        return Boolean.TRUE.equals(redisTemplate.hasKey("crawl:lock:" + category));
-    }
-
-    public void markCrawling(String category) {
-        redisTemplate.opsForValue().set("crawl:lock:" + category, "1", Duration.ofMinutes(3));
-    }
-
-    public void clearCrawling(String category) {
-        redisTemplate.delete("crawl:lock:" + category);
-    }
-
     public void crawlAndSave(String category, List<Map<String, Object>> articles) {
         String key = "trend:" + category.toLowerCase() + ":articles";
 
@@ -272,7 +265,7 @@ public class NewsRedisService {
 
         if (!jsonList.isEmpty()) {
             redisTemplate.opsForList().rightPushAll(key, jsonList);
-            redisTemplate.expire(key, Duration.ofMinutes(10)); // 캐시 10분
+            redisTemplate.expire(key, CACHE_TTL);
         }
     }
 }

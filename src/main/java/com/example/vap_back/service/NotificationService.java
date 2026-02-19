@@ -20,20 +20,25 @@ public class NotificationService {
 
     // 클라이언트 연결 (Subscribe)
     public SseEmitter subscribe(String userId) {
-        // 연결 유지 시간 설정 (기본 1시간: 3600000ms)
-        SseEmitter emitter = new SseEmitter(60 * 60 * 1000L);
+        // 연결 유지 시간 설정 (5분)
+        SseEmitter emitter = new SseEmitter(5 * 60 * 1000L);
 
         emitters.put(userId, emitter);
-        log.info("👤 [SSE Connected] UserId: {}", userId);
+        log.info("[SSE Connected] UserId: {}", userId);
 
         // 연결 종료 혹은 타임아웃 시 목록에서 제거
         emitter.onCompletion(() -> {
-            log.info("👋 [SSE Completed] UserId: {}", userId);
+            log.info("[SSE Completed] UserId: {}", userId);
             emitters.remove(userId);
         });
 
         emitter.onTimeout(() -> {
-            log.info("⏰ [SSE Timeout] UserId: {}", userId);
+            log.info("[SSE Timeout] UserId: {}", userId);
+            emitters.remove(userId);
+        });
+
+        emitter.onError(e -> {
+            log.warn("[SSE Error] UserId: {}, error: {}", userId, e.getMessage());
             emitters.remove(userId);
         });
 

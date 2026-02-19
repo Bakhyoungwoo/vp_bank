@@ -5,7 +5,6 @@ import com.example.vap_back.Entity.User;
 import com.example.vap_back.service.NewsRedisService;
 import com.example.vap_back.service.NewsService;
 import com.example.vap_back.service.UserInterestService;
-import com.example.vap_back.repository.NewsRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -20,13 +19,11 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/news")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class UserNewsController {
 
     private final UserInterestService userInterestService;
     private final NewsRedisService newsRedisService;
     private final NewsService newsService;
-    private final NewsRepository newsRepository;
 
     // 키워드 조회 (Redis)
     @GetMapping("/keywords/{category}")
@@ -96,7 +93,6 @@ public class UserNewsController {
 
     @GetMapping("/search")
     public List<News> searchNews(@RequestParam("q") String q) {
-        // NewsRepository에 아까 추가한 메소드 호출
-        return newsRepository.findByTitleContainingOrderByPublishedAtDesc(q);
+        return newsService.searchNews(q);
     }
 }

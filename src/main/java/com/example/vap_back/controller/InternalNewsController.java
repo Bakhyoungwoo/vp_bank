@@ -16,7 +16,7 @@ import org.springframework.web.client.RestTemplate;
 public class InternalNewsController {
 
     private final NewsService newsService;
-    private final RestTemplate restTemplate = new RestTemplate(); // 파이썬 서버와 통신할 도구
+    private final RestTemplate restTemplate;
 
     // Python -> Spring (크롤링한 뉴스 데이터 받기)
     @PostMapping
