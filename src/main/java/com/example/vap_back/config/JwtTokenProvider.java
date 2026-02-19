@@ -23,7 +23,7 @@ public class JwtTokenProvider {
 
     private final UserDetailsService userDetailsService;
     private final Key key;
-    private final long validityInMilliseconds = 3600000; // 1시간 유효
+    private final long validityInMilliseconds = 604800000L; // 7일 유효 (자동로그인)
 
     // 생성자 수정: @Value를 통해 secret 값을 주입받음
     public JwtTokenProvider(

@@ -45,5 +45,7 @@ logging:
     com.example.vap_back: DEBUG
 
 jwt:
-  # 보안을 위해 이 값도 환경 변수로 관리하는 것을 추천하지만, 우선 유지합니다.
-  secret: ${JWT_SECRET:v7S8yB6pXW4v9zK2m5N8w3Q6r9yB6EPHMcQfTjWnZr4u7xACFJaNdRgUkX123456}
+  secret: ${JWT_SECRET:dev-local-secret-key-change-in-production}
+
+cors:
+  allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:5500,http://127.0.0.1:5500,null}
