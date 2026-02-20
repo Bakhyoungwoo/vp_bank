@@ -17,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -50,6 +51,8 @@ public class SecurityConfig {
                         ).authenticated()
                         // 북마크는 인증 필수
                         .requestMatchers("/api/bookmarks/**").authenticated()
+                        // 비밀번호 변경은 인증 필수 (permitAll의 /api/users/** 보다 먼저 선언)
+                        .requestMatchers("/api/users/password").authenticated()
                         // 크롤러, SSE, 조회, 회원가입, 로그아웃
                         .requestMatchers(
                                 "/api/users/**",
@@ -63,6 +66,11 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/actuator/**").denyAll()
                         .anyRequest().authenticated()
+                )
+                // 미인증 요청 시 403 대신 401 반환
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) ->
+                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
                 )
                 // JWT 필터 추가
                 .addFilterBefore(
@@ -81,7 +89,7 @@ public class SecurityConfig {
                 .collect(Collectors.toList());
         log.info("[CORS] 허용된 Origin: {}", allowedOrigins);
         config.setAllowedOrigins(allowedOrigins);
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 

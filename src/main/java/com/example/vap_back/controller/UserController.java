@@ -1,6 +1,7 @@
 package com.example.vap_back.controller;
 
 import com.example.vap_back.Entity.User;
+import com.example.vap_back.dto.ChangePasswordRequest;
 import com.example.vap_back.dto.UserRequest;
 import com.example.vap_back.service.UserService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -58,6 +59,16 @@ public class UserController {
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
         log.info("[LOGOUT] 쿠키 삭제 완료");
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/password")
+    public ResponseEntity<Void> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            Authentication authentication) {
+        log.info("[CHANGE_PASSWORD] 요청 수신 - email={}", authentication.getName());
+        userService.changePassword(authentication.getName(), request.getCurrentPassword(), request.getNewPassword());
+        log.info("[CHANGE_PASSWORD] 완료 - email={}", authentication.getName());
         return ResponseEntity.ok().build();
     }
 

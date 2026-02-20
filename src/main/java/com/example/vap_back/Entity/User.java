@@ -32,4 +32,8 @@ public class User {
     public String getUsername() {
         return this.email;
     }
+
+    public void updatePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
 }
