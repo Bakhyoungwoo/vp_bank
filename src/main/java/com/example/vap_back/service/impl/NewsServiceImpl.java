@@ -29,7 +29,7 @@ public class NewsServiceImpl implements NewsService {
 
     @Override
     public List<News> searchNews(String keyword) {
-        return newsRepository.findByTitleContainingOrderByPublishedAtDesc(keyword);
+        return newsRepository.searchByKeyword(keyword);
     }
 
     @Override
