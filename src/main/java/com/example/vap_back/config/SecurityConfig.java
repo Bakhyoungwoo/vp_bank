@@ -62,8 +62,14 @@ public class SecurityConfig {
                                 "/api/internal/**",
                                 "/api/search/**"
                         ).permitAll()
-                        // Actuator: health 체크만 공개, 나머지는 차단
-                        .requestMatchers("/actuator/health").permitAll()
+                        // Swagger UI
+                        .requestMatchers(
+                            "/swagger-ui/**",
+                            "/swagger-ui.html",
+                            "/v3/api-docs/**"
+                        ).permitAll()
+                        // Actuator: health + prometheus 공개
+                        .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
                         .requestMatchers("/actuator/**").denyAll()
                         .anyRequest().authenticated()
                 )
