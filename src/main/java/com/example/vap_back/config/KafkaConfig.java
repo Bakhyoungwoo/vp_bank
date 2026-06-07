@@ -4,16 +4,21 @@ import com.example.vap_back.dto.NewsCrawlEvent;
 import com.example.vap_back.dto.UserEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -84,6 +89,7 @@ public class KafkaConfig {
     }
 
     @Bean
+    @Primary
     public KafkaTemplate<String, NewsCrawlEvent> newsCrawlKafkaTemplate() {
         return new KafkaTemplate<>(newsCrawlProducerFactory());
     }
@@ -107,9 +113,25 @@ public class KafkaConfig {
         );
     }
 
+    // DLQ: 크롤링 실패 메시지를 crawl-news-dlq 토픽으로 전송하는 템플릿
+    @Bean
+    public KafkaTemplate<String, NewsCrawlEvent> dlqKafkaTemplate() {
+        return new KafkaTemplate<>(newsCrawlProducerFactory());
+    }
+
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, NewsCrawlEvent>
     newsCrawlKafkaListenerContainerFactory() {
+
+        // 3회 시도(초기 1회 + 재시도 2회) 후 DLQ 전송
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                dlqKafkaTemplate(),
+                (record, ex) -> new TopicPartition("crawl-news-dlq", 0)
+        );
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(
+                recoverer,
+                new FixedBackOff(1000L, 2L)  // 1초 간격, 2회 재시도
+        );
 
         ConcurrentKafkaListenerContainerFactory<String, NewsCrawlEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
@@ -117,6 +139,7 @@ public class KafkaConfig {
         factory.setConsumerFactory(newsCrawlConsumerFactory());
         factory.setConcurrency(2);
         factory.setBatchListener(false);
+        factory.setCommonErrorHandler(errorHandler);
 
         return factory;
     }

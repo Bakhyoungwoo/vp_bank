@@ -1,0 +1,94 @@
+name: VAP Service CI/CD
+
+on:
+  push:
+    branches: [ "master" ]
+
+jobs:
+  # Spring Boot Build & Push
+  build-spring:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Build with Gradle
+        run: |
+          chmod +x gradlew
+          ./gradlew clean build -x test
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Spring Image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/vap-spring:latest
+
+  # Python Build & Push
+  build-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Python Image
+        uses: docker/build-push-action@v4
+        with:
+          # 중요: Python 코드가 있는 하위 폴더 지정
+          context: ./AI_python
+          file: ./AI_python/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/vap-python:latest
+
+  # Job 3: Deploy to Server
+  deploy:
+    needs: [build-spring, build-python]
+    runs-on: ubuntu-latest
+    steps:
+      # 설정 파일(compose-prod.yaml) 서버로 전송
+      - name: Copy Compose File to Server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_KEY }}
+          source: "compose-prod.yaml"
+          target: "/home/${{ secrets.SERVER_USER }}/"
+
+      # 서버 접속 후 배포 명령 실행
+      - name: Execute Remote Deployment
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_KEY }}
+          script: |
+            # 환경변수 설정 (Docker Hub ID)
+            export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+            
+            # 최신 이미지 다운로드
+            docker pull ${{ secrets.DOCKER_USERNAME }}/vap-spring:latest
+            docker pull ${{ secrets.DOCKER_USERNAME }}/vap-python:latest
+            
+            # 서비스 재시작 (업데이트)
+            docker compose -f compose-prod.yaml up -d --remove-orphans
+            
+            # 불필요한 이미지 정리
+            docker image prune -f

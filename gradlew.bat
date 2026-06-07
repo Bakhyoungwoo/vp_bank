@@ -66,6 +66,9 @@ echo location of your Java installation.
 goto fail
 
 :execute
+@rem Use ASCII-only path for Gradle user home to avoid encoding issues with non-ASCII usernames
+if not defined GRADLE_USER_HOME set GRADLE_USER_HOME=C:\gradle-home
+
 @rem Setup the command line
 
 set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar

@@ -2,6 +2,7 @@ package com.example.vap_back.config;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -67,17 +68,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    // Authorization 헤더에서 Bearer 토큰 추출
+    // Authorization 헤더 또는 쿠키에서 토큰 추출
     private String resolveToken(HttpServletRequest request) {
+        // 1. Authorization 헤더 우선 확인
         String bearerToken = request.getHeader("Authorization");
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            log.trace("[JWT FILTER] Authorization header에서 토큰 추출");
+            return bearerToken.substring(7);
+        }
 
-        if (StringUtils.hasText(bearerToken)) {
-            log.trace("[JWT FILTER] Authorization header = {}", bearerToken); // 민감 정보일 수 있으므로 trace
-
-            if (bearerToken.startsWith("Bearer ")) {
-                return bearerToken.substring(7);
+        // 2. HTTP-only 쿠키에서 확인 (자동로그인)
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("access_token".equals(cookie.getName())) {
+                    log.trace("[JWT FILTER] 쿠키에서 토큰 추출");
+                    return cookie.getValue();
+                }
             }
         }
+
         return null;
     }
 }
