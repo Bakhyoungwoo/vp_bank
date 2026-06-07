@@ -2,8 +2,10 @@ package com.example.vap_back.controller;
 
 import com.example.vap_back.Entity.News;
 import com.example.vap_back.Entity.User;
-import com.example.vap_back.service.NewsRedisService;
+import com.example.vap_back.service.NewsRecommendationService;
+import com.example.vap_back.service.NewsTrendingService;
 import com.example.vap_back.service.NewsService;
+import com.example.vap_back.service.NewsUserActivityService;
 import com.example.vap_back.service.UserInterestService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,7 +27,9 @@ import java.util.Map;
 public class UserNewsController {
 
     private final UserInterestService userInterestService;
-    private final NewsRedisService newsRedisService;
+    private final NewsTrendingService newsTrendingService;
+    private final NewsUserActivityService newsUserActivityService;
+    private final NewsRecommendationService newsRecommendationService;
     private final NewsService newsService;
 
     // 키워드 조회 (Redis)
@@ -35,10 +39,9 @@ public class UserNewsController {
         String normalized = category.trim().toLowerCase();
         log.info("[KEYWORD API] raw='{}', normalized='{}'", category, normalized);
         return ResponseEntity.ok(
-                newsRedisService.getTopKeywords(normalized)
+                newsTrendingService.getTopKeywords(normalized)
         );
     }
-
 
     // 뉴스 클릭 로그 (Redis)
     @Operation(summary = "뉴스 클릭 로그", description = "사용자의 뉴스 클릭 키워드를 Redis에 기록합니다.")
@@ -59,7 +62,7 @@ public class UserNewsController {
         List<String> keywords = (List<String>) body.get("keywords");
 
         if (keywords != null && !keywords.isEmpty()) {
-            newsRedisService.addClickLog(userId, keywords);
+            newsUserActivityService.addClickLog(userId, keywords);
         }
 
         return ResponseEntity.ok().build();
@@ -82,7 +85,7 @@ public class UserNewsController {
         }
 
         List<Map<String, Object>> result =
-                newsRedisService.recommendArticles(userId, 5);
+                newsRecommendationService.recommendArticles(userId, 5);
 
         log.debug("recommend processed. userId={}, size={}", userId, result.size());
 
