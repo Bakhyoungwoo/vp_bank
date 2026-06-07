@@ -6,7 +6,7 @@ import com.example.vap_back.service.NewsCacheService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.annotation.PostConstruct;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -27,20 +27,8 @@ public class NewsCacheServiceImpl implements NewsCacheService {
 
     private static final Duration CACHE_TTL = Duration.ofMinutes(10);
 
-    @PostConstruct
-    public void checkConnection() {
-        log.info("======= [REDIS CONNECTION CHECK] =======");
-        try {
-            String ping = Objects.requireNonNull(redisTemplate.getConnectionFactory())
-                    .getConnection().ping();
-            log.info("Redis Ping: {}", ping);
-        } catch (Exception e) {
-            log.error("Redis connection check failed", e);
-        }
-        log.info("========================================");
-    }
-
     @Override
+    @CircuitBreaker(name = "redisService", fallbackMethod = "getLatestArticlesFallback")
     public List<Map<String, Object>> getLatestArticles(String category, int limit) {
         String key = "trend:" + category.toLowerCase() + ":articles";
 
@@ -82,6 +70,16 @@ public class NewsCacheServiceImpl implements NewsCacheService {
         }
 
         return resultList.stream().limit(limit).collect(Collectors.toList());
+    }
+
+    // Redis 장애 시 DB에서 직접 조회하는 fallback
+    public List<Map<String, Object>> getLatestArticlesFallback(String category, int limit, Exception e) {
+        log.warn("[CircuitBreaker] redisService OPEN - DB fallback 실행: category={}, reason={}", category, e.getMessage());
+        return newsRepository.findTop50ByCategoryOrderByPublishedAtDesc(category.toLowerCase())
+                .stream()
+                .limit(limit)
+                .map(this::convertEntityToMap)
+                .collect(Collectors.toList());
     }
 
     @Override
