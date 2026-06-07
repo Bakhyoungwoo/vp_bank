@@ -2,7 +2,7 @@ package com.example.vap_back.kafka;
 
 import com.example.vap_back.dto.NewsCrawlEvent;
 import com.example.vap_back.service.CrawlLockService;
-import com.example.vap_back.service.NewsRedisService;
+import com.example.vap_back.service.NewsCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -16,10 +16,14 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class NewsCrawlConsumer {
 
-    private final NewsRedisService newsRedisService;
+    private final NewsCacheService newsCacheService;
     private final CrawlLockService crawlLockService;
 
-    @KafkaListener(topics = "crawl-news", groupId = "news-crawler-group")
+    @KafkaListener(
+            topics = "crawl-news",
+            groupId = "news-crawler-group",
+            containerFactory = "newsCrawlKafkaListenerContainerFactory"
+    )
     public void consume(NewsCrawlEvent event) {
         String category = event.getCategory();
 
@@ -33,11 +37,12 @@ public class NewsCrawlConsumer {
             List<Map<String, Object>> articles =
                     /* 기존 크롤링 로직 호출 */ List.of();
 
-            newsRedisService.crawlAndSave(category, articles);
+            newsCacheService.crawlAndSave(category, articles);
             log.info("뉴스 갱신 완료 - category={}", category);
 
         } catch (Exception e) {
-            log.error("뉴스 갱신 실패 - category={}", category, e);
+            log.error("뉴스 갱신 실패 - category={}, DLQ 재시도 예정", category, e);
+            throw e;  // DefaultErrorHandler가 3회 재시도 후 crawl-news-dlq로 전송
         } finally {
             crawlLockService.unlock(category);
         }
