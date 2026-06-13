@@ -54,13 +54,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics, circuitbreakers
+        include: health, info, circuitbreakers
   endpoint:
     health:
       show-details: always
-  metrics:
-    tags:
-      application: vap-backend
 
 resilience4j:
   circuitbreaker:
