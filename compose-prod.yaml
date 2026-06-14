@@ -82,37 +82,6 @@ services:
     networks:
       - vap-network
 
-  prometheus:
-    image: prom/prometheus:v2.51.0
-    container_name: vap-prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.retention.time=7d'
-    networks:
-      - vap-network
-
-  grafana:
-    image: grafana/grafana:10.4.0
-    container_name: vap-grafana
-    ports:
-      - "3001:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-    depends_on:
-      - prometheus
-    networks:
-      - vap-network
 
 volumes:
   mysql_data:
-  grafana_data:
