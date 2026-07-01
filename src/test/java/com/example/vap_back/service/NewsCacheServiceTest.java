@@ -44,7 +44,7 @@ class NewsCacheServiceTest {
 
     @SuppressWarnings("unchecked")
     @Test
-    @DisplayName("캐시 HIT - Redis에 데이터 있으면 DB 조회 없이 캐시 반환")
+    @DisplayName("캐시 HIT - Redis에 데이터가 있으면 DB 조회 없이 캐시 반환")
     void getLatestArticles_cacheHit_returnsFromCache() throws Exception {
         // given
         List<String> cachedJsons = List.of("{\"title\":\"캐시 기사\",\"url\":\"http://a.com\"}");
@@ -69,7 +69,7 @@ class NewsCacheServiceTest {
         given(listOps.range("trend:it:articles", 0, 9)).willReturn(List.of());
 
         News news = News.builder().id(1L).title("DB 기사").url("http://db.com")
-                .press("언론사").keywords(null).build();
+                .press("매일경제").keywords(null).build();
         given(newsRepository.findTop50ByCategoryOrderByPublishedAtDesc("it")).willReturn(List.of(news));
         given(objectMapper.writeValueAsString(any())).willReturn("{\"title\":\"DB 기사\"}");
 
@@ -98,85 +98,8 @@ class NewsCacheServiceTest {
         then(listOps).should(never()).rightPushAll(anyString(), anyList());
     }
 
-    // ──────────────────────────────────────────────────────
-    // Redis 장애 fallback (CircuitBreaker) 테스트
-    // ──────────────────────────────────────────────────────
-
     @Test
-    @DisplayName("Redis 장애 fallback - DB에서 직접 조회하여 반환")
-    void getLatestArticlesFallback_returnsFromDb() {
-        // given
-        News news = News.builder().id(1L).title("Fallback 기사").url("http://fallback.com")
-                .press("언론사").keywords(null).build();
-        given(newsRepository.findTop50ByCategoryOrderByPublishedAtDesc("it"))
-                .willReturn(List.of(news));
-
-        // when: fallback 메서드를 직접 호출 (AOP 없이 로직만 검증)
-        List<Map<String, Object>> result = newsCacheService.getLatestArticlesFallback(
-                "it", 10, new RuntimeException("Redis connection refused"));
-
-        // then
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).get("title")).isEqualTo("Fallback 기사");
-        assertThat(result.get(0).get("url")).isEqualTo("http://fallback.com");
-    }
-
-    @Test
-    @DisplayName("Redis 장애 fallback - limit 이하로만 반환")
-    void getLatestArticlesFallback_respectsLimit() {
-        // given: DB에 3건이지만 limit=2
-        List<News> dbNews = List.of(
-                News.builder().id(1L).title("기사1").url("http://1.com").keywords(null).build(),
-                News.builder().id(2L).title("기사2").url("http://2.com").keywords(null).build(),
-                News.builder().id(3L).title("기사3").url("http://3.com").keywords(null).build()
-        );
-        given(newsRepository.findTop50ByCategoryOrderByPublishedAtDesc("economy"))
-                .willReturn(dbNews);
-
-        // when
-        List<Map<String, Object>> result = newsCacheService.getLatestArticlesFallback(
-                "economy", 2, new RuntimeException("Redis timeout"));
-
-        // then
-        assertThat(result).hasSize(2);
-    }
-
-    @Test
-    @DisplayName("Redis 장애 fallback - DB도 비어있으면 빈 리스트 반환")
-    void getLatestArticlesFallback_dbEmpty_returnsEmptyList() {
-        // given
-        given(newsRepository.findTop50ByCategoryOrderByPublishedAtDesc("politics"))
-                .willReturn(List.of());
-
-        // when
-        List<Map<String, Object>> result = newsCacheService.getLatestArticlesFallback(
-                "politics", 10, new RuntimeException("Redis down"));
-
-        // then
-        assertThat(result).isEmpty();
-    }
-
-    @Test
-    @DisplayName("Redis 장애 fallback - keywords null인 뉴스는 빈 키워드 리스트로 매핑")
-    void getLatestArticlesFallback_nullKeywords_mappedAsEmptyList() {
-        // given
-        News news = News.builder().id(1L).title("키워드 없는 기사").url("http://no-kw.com")
-                .keywords(null).build();
-        given(newsRepository.findTop50ByCategoryOrderByPublishedAtDesc("world"))
-                .willReturn(List.of(news));
-
-        // when
-        List<Map<String, Object>> result = newsCacheService.getLatestArticlesFallback(
-                "world", 10, new RuntimeException("Redis error"));
-
-        // then
-        assertThat(result.get(0).get("keywords")).isEqualTo(List.of());
-    }
-
-    // ──────────────────────────────────────────────────────
-
-    @Test
-    @DisplayName("크롤링 저장 - 기존 키 삭제 후 새 데이터 저장 및 만료 설정")
+    @DisplayName("크롤 저장 - 기존 키 삭제 후 새 데이터 저장")
     void crawlAndSave_deletesOldAndSavesNew() throws Exception {
         // given
         List<Map<String, Object>> articles = List.of(

@@ -81,7 +81,7 @@ class InternalNewsControllerTest {
 
         mockMvc.perform(post("/api/internal/news/crawl").param("category", "it"))
                 .andExpect(status().isInternalServerError())
-                .andExpect(content().string(containsString("크롤러 서버(Python)")));
+                .andExpect(content().string(containsString("크롤러(Python) 서버가 꺼져 있는지 확인해주세요.")));
     }
 
     @Test

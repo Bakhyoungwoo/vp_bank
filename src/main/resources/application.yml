@@ -1,6 +1,6 @@
 spring:
   datasource:
-    # 환경 변수가 있으면 사용하고, 없으면 로컬(3307)을 사용합니다.
+    # 개발 환경에서는 환경변수를 우선 사용하고, 없으면 로컬 MySQL(3307)을 사용합니다.
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3307/vapdb?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul}
     username: ${SPRING_DATASOURCE_USERNAME:vap}
     password: ${SPRING_DATASOURCE_PASSWORD:vap123}
@@ -17,13 +17,13 @@ spring:
   # Redis 설정
   data:
     redis:
-      # 도커 환경에서는 서비스 명인 'redis'를 사용합니다.
+      # 운영 환경에서는 서비스 이름 redis를 사용합니다.
       host: ${SPRING_REDIS_HOST:127.0.0.1}
       port: 6379
       database: 0
 
   kafka:
-    # 도커 내부 통신 시에는 kafka:9092를 사용합니다.
+    # 운영 환경에서는 kafka:9092를 사용합니다.
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -38,7 +38,7 @@ spring:
     compose:
       enabled: false
 
-# logging 설정
+# 로깅 설정
 logging:
   level:
     root: INFO
@@ -54,36 +54,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, circuitbreakers
+        include: health, info
   endpoint:
     health:
       show-details: always
-
-resilience4j:
-  circuitbreaker:
-    instances:
-      crawlerService:
-        registerHealthIndicator: true
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        permittedNumberOfCallsInHalfOpenState: 3
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-        waitDurationInOpenState: 30s
-        failureRateThreshold: 50
-        eventConsumerBufferSize: 10
-      redisService:
-        registerHealthIndicator: true
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        permittedNumberOfCallsInHalfOpenState: 3
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-        waitDurationInOpenState: 30s
-        failureRateThreshold: 50
-        eventConsumerBufferSize: 10
-  timelimiter:
-    instances:
-      crawlerService:
-        timeoutDuration: 5s
 
 springdoc:
   swagger-ui:
