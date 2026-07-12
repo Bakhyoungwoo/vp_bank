@@ -6,11 +6,11 @@ import com.example.vap_back.dto.UserEvent;
 import com.example.vap_back.dto.UserRequest;
 import com.example.vap_back.exception.InvalidCredentialsException;
 import com.example.vap_back.exception.UserNotFoundException;
+import com.example.vap_back.kafka.UserProducer;
 import com.example.vap_back.repository.UserRepository;
 import com.example.vap_back.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +23,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository repository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    private final ApplicationEventPublisher eventPublisher;
+    private final UserProducer userProducer;
 
     @Transactional
     @Override
@@ -46,7 +46,7 @@ public class UserServiceImpl implements UserService {
         User saved = repository.save(user);
         log.debug("[UserService.signup] DB 저장 완료 - userId={}", saved.getId());
 
-        eventPublisher.publishEvent(new UserEvent(saved.getId(), saved.getEmail(), "CREATED"));
+        userProducer.send(new UserEvent(saved.getId(), saved.getEmail(), "CREATED"));
         log.debug("[UserService.signup] 이벤트 발행 완료 - CREATED");
         return saved;
     }
@@ -61,11 +61,11 @@ public class UserServiceImpl implements UserService {
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
             log.warn("[UserService.login] 비밀번호 불일치 - email={}", email);
-            eventPublisher.publishEvent(new UserEvent(user.getId(), email, "LOGIN_FAIL"));
+            userProducer.send(new UserEvent(user.getId(), email, "LOGIN_FAIL"));
             throw new InvalidCredentialsException();
         }
 
-        eventPublisher.publishEvent(new UserEvent(user.getId(), email, "LOGIN_SUCCESS"));
+        userProducer.send(new UserEvent(user.getId(), email, "LOGIN_SUCCESS"));
         log.debug("[UserService.login] 완료 - email={}", email);
         return jwtTokenProvider.createToken(user.getEmail());
     }
