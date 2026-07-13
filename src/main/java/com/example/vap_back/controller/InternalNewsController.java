@@ -1,49 +1,50 @@
 package com.example.vap_back.controller;
 
 import com.example.vap_back.dto.NewsCreateRequest;
+import com.example.vap_back.kafka.NewsCrawlProducer;
 import com.example.vap_back.service.NewsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/internal/news")
 @CrossOrigin
-@Tag(name = "Internal", description = "내부 연동 API")
+@Tag(name = "Internal", description = "?대? ?곕룞 API")
 public class InternalNewsController {
 
     private final NewsService newsService;
-    private final RestTemplate restTemplate;
+    private final NewsCrawlProducer newsCrawlProducer;
 
-    // Python -> Spring으로 뉴스 데이터 받기
+    // Python -> Spring?쇰줈 ?댁뒪 ?곗씠??諛쏄린
     @PostMapping
-    @Operation(summary = "뉴스 수신", description = "외부 Python 서버에서 뉴스 데이터를 받아 저장합니다.")
+    @Operation(summary = "?댁뒪 ?섏떊", description = "?몃? Python ?쒕쾭?먯꽌 ?댁뒪 ?곗씠?곕? 諛쏆븘 ??ν빀?덈떎.")
     public ResponseEntity<Void> receiveNews(@RequestBody NewsCreateRequest request) {
-        log.info("[News Received] 외부에서 뉴스 수신: {}", request.getTitle());
+        log.info("[News Received] ?몃??먯꽌 ?댁뒪 ?섏떊: {}", request.getTitle());
         newsService.saveNews(request);
         return ResponseEntity.ok().build();
     }
 
-    // Spring -> Python 크롤러 호출
+    // Spring -> Kafka ?щ·???몄텧
     @PostMapping("/crawl")
-    @Operation(summary = "크롤링 시작", description = "지정한 카테고리에 대해 Python 크롤러 서버에 크롤링 시작을 요청합니다.")
+    @Operation(summary = "?щ·留??쒖옉", description = "吏?뺥븳 移댄뀒怨좊━?????Kafka ?щ·留??쒖옉 硫붿떆吏瑜?諛쏆븥遺덈떎.")
     public ResponseEntity<String> triggerCrawl(@RequestParam("category") String category) {
-        log.info("[Command] 크롤링 시작 명령: category={}", category);
+        String normalizedCategory = category.trim().toLowerCase();
+        log.info("[Command] ?щ·留??쒖옉 硫붿떆吏 ?꾩넚: category={}", normalizedCategory);
 
-        try {
-            String pythonUrl = "http://localhost:8000/crawl?category=" + category;
-            restTemplate.postForEntity(pythonUrl, null, String.class);
-            Thread.sleep(2000);
-            return ResponseEntity.ok("크롤링 시작 요청 성공");
-        } catch (Exception e) {
-            log.error("크롤러 서버 연결 실패", e);
-            return ResponseEntity.internalServerError().body("크롤러(Python) 서버가 꺼져 있는지 확인해주세요.");
-        }
+        newsCrawlProducer.requestCrawl(normalizedCategory);
+
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body("crawl request accepted");
     }
 }
