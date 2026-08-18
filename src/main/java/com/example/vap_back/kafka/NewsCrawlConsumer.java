@@ -6,6 +6,8 @@ import com.example.vap_back.service.NewsCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -18,6 +20,10 @@ public class NewsCrawlConsumer {
 
     private final NewsCacheService newsCacheService;
     private final CrawlLockService crawlLockService;
+    private final RestTemplate restTemplate;
+
+    @Value("${crawler.base-url:http://localhost:8000}")
+    private String crawlerBaseUrl;
 
     @KafkaListener(
             topics = "crawl-news",
@@ -34,8 +40,11 @@ public class NewsCrawlConsumer {
         try {
             crawlLockService.lock(category);
 
-            List<Map<String, Object>> articles =
-                    /* 기존 크롤링 로직 호출 */ List.of();
+            String crawlUrl = crawlerBaseUrl + "/crawl?category=" + category;
+            restTemplate.postForEntity(crawlUrl, null, String.class);
+
+            // Python crawler가 기사를 Spring 내부 API로 저장한 뒤 cache-aside key를 무효화한다.
+            List<Map<String, Object>> articles = List.of();
 
             newsCacheService.crawlAndSave(category, articles);
             log.info("뉴스 갱신 완료 - category={}", category);
