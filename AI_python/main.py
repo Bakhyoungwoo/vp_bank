@@ -22,7 +22,8 @@ rd = redis.Redis(
     host=REDIS_HOST,
     port=6379,
     db=0,
-    decode_responses=True
+    decode_responses=True,
+    protocol=2
 )
 # ==================================================
 # Paths
