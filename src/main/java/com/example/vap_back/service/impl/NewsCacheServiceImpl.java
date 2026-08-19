@@ -6,14 +6,17 @@ import com.example.vap_back.service.NewsCacheService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -28,21 +31,20 @@ public class NewsCacheServiceImpl implements NewsCacheService {
     private static final Duration CACHE_TTL = Duration.ofMinutes(10);
 
     @Override
-    @CircuitBreaker(name = "redisService", fallbackMethod = "getLatestArticlesFallback")
     public List<Map<String, Object>> getLatestArticles(String category, int limit) {
         String key = "trend:" + category.toLowerCase() + ":articles";
 
         List<String> rawArticles = redisTemplate.opsForList().range(key, 0, limit - 1);
 
         if (rawArticles != null && !rawArticles.isEmpty()) {
-            log.debug("[CACHE HIT] Redis에서 {} 뉴스 조회", category);
+            log.debug("[CACHE HIT] Redis에서 {} 기사 조회", category);
             return rawArticles.stream()
                     .map(this::parseJsonToMap)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
         }
 
-        log.info("[CACHE MISS] DB에서 {} 뉴스 조회 및 캐싱 시도", category);
+        log.info("[CACHE MISS] DB에서 {} 기사 조회 후 캐싱", category);
 
         List<News> dbNewsList = newsRepository.findTop50ByCategoryOrderByPublishedAtDesc(category.toLowerCase());
 
@@ -59,7 +61,7 @@ public class NewsCacheServiceImpl implements NewsCacheService {
             try {
                 jsonList.add(objectMapper.writeValueAsString(map));
             } catch (JsonProcessingException e) {
-                log.error("JSON 변환 에러", e);
+                log.error("JSON 변환 오류", e);
             }
         }
 
@@ -70,16 +72,6 @@ public class NewsCacheServiceImpl implements NewsCacheService {
         }
 
         return resultList.stream().limit(limit).collect(Collectors.toList());
-    }
-
-    // Redis 장애 시 DB에서 직접 조회하는 fallback
-    public List<Map<String, Object>> getLatestArticlesFallback(String category, int limit, Exception e) {
-        log.warn("[CircuitBreaker] redisService OPEN - DB fallback 실행: category={}, reason={}", category, e.getMessage());
-        return newsRepository.findTop50ByCategoryOrderByPublishedAtDesc(category.toLowerCase())
-                .stream()
-                .limit(limit)
-                .map(this::convertEntityToMap)
-                .collect(Collectors.toList());
     }
 
     @Override

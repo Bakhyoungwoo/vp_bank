@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 import json
 import os
 import requests
@@ -22,7 +22,8 @@ rd = redis.Redis(
     host=REDIS_HOST,
     port=6379,
     db=0,
-    decode_responses=True
+    decode_responses=True,
+    protocol=2
 )
 # ==================================================
 # Paths
@@ -181,6 +182,32 @@ async def lifespan(app: FastAPI):
 # App
 # ==================================================
 app = FastAPI(lifespan=lifespan)
+
+
+@app.post("/crawl")
+def crawl(category: str):
+    """Run one category synchronously. Used by the before-Kafka comparison API."""
+    category = category.strip().lower()
+    if category not in CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"unsupported category: {category}")
+
+    code = CATEGORIES[category]
+    try:
+        crawl_category(category, code, max_pages=1)
+        file_path = os.path.join(DATA_DIR, f"{category}.json")
+        if not os.path.exists(file_path):
+            return {"category": category, "articles": 0, "status": "completed"}
+
+        with open(file_path, "r", encoding="utf-8") as f:
+            articles = json.load(f)
+        for article in articles or []:
+            send_news_to_spring(article, category)
+
+        rd.delete(f"trend:{category}:articles")
+        return {"category": category, "articles": len(articles or []), "status": "completed"}
+    except Exception as exc:
+        print(f"[CRAWL ERROR] {category}", exc)
+        raise HTTPException(status_code=500, detail="crawl failed") from exc
 
 
 if __name__ == "__main__":

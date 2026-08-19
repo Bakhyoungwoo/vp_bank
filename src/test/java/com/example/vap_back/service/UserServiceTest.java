@@ -2,10 +2,10 @@ package com.example.vap_back.service;
 
 import com.example.vap_back.Entity.User;
 import com.example.vap_back.config.JwtTokenProvider;
-import com.example.vap_back.dto.UserEvent;
 import com.example.vap_back.dto.UserRequest;
 import com.example.vap_back.exception.InvalidCredentialsException;
 import com.example.vap_back.exception.UserNotFoundException;
+import com.example.vap_back.kafka.UserProducer;
 import com.example.vap_back.repository.UserRepository;
 import com.example.vap_back.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.DisplayName;
@@ -14,7 +14,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.Optional;
@@ -29,7 +28,7 @@ class UserServiceTest {
     @Mock UserRepository repository;
     @Mock BCryptPasswordEncoder passwordEncoder;
     @Mock JwtTokenProvider jwtTokenProvider;
-    @Mock ApplicationEventPublisher eventPublisher;
+    @Mock UserProducer userProducer;
 
     @InjectMocks
     UserServiceImpl userService;
@@ -58,8 +57,8 @@ class UserServiceTest {
         // then
         assertThat(result.getId()).isEqualTo(1L);
         assertThat(result.getEmail()).isEqualTo("test@test.com");
-        then(eventPublisher).should().publishEvent(argThat((Object e) ->
-                e instanceof UserEvent && "CREATED".equals(((UserEvent) e).getAction())));
+        then(userProducer).should().send(argThat(e ->
+                "CREATED".equals(e.getAction())));
     }
 
     @Test
@@ -95,8 +94,8 @@ class UserServiceTest {
 
         // then
         assertThat(token).isEqualTo("jwt-token");
-        then(eventPublisher).should().publishEvent(argThat((Object e) ->
-                e instanceof UserEvent && "LOGIN_SUCCESS".equals(((UserEvent) e).getAction())));
+        then(userProducer).should().send(argThat(e ->
+                "LOGIN_SUCCESS".equals(e.getAction())));
     }
 
     @Test
@@ -121,8 +120,8 @@ class UserServiceTest {
         // when & then
         assertThatThrownBy(() -> userService.login("test@test.com", "wrong"))
                 .isInstanceOf(InvalidCredentialsException.class);
-        then(eventPublisher).should().publishEvent(argThat((Object e) ->
-                e instanceof UserEvent && "LOGIN_FAIL".equals(((UserEvent) e).getAction())));
+        then(userProducer).should().send(argThat(e ->
+                "LOGIN_FAIL".equals(e.getAction())));
     }
 
     // ── getUserByEmail ────────────────────────────────────────

@@ -68,12 +68,18 @@ public class KafkaConfig {
     public ConcurrentKafkaListenerContainerFactory<String, UserEvent>
     userKafkaListenerContainerFactory() {
 
+        // 역직렬화 실패 등 처리 불가능한 메시지가 무한 재시도로 로그를 채우지 않도록 재시도 횟수를 제한
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(
+                new FixedBackOff(1000L, 2L)  // 1초 간격, 2회 재시도 후 스킵
+        );
+
         ConcurrentKafkaListenerContainerFactory<String, UserEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
 
         factory.setConsumerFactory(userConsumerFactory());
         factory.setConcurrency(1);
         factory.setBatchListener(false);
+        factory.setCommonErrorHandler(errorHandler);
 
         return factory;
     }

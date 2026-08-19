@@ -113,7 +113,7 @@ public class SecurityConfig {
     public RestTemplate restTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(5_000);
-        factory.setReadTimeout(10_000);
+        factory.setReadTimeout(30_000);
         return new RestTemplate(factory);
     }
 }

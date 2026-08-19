@@ -32,7 +32,7 @@ AI 키워드 추출을 통한 뉴스 트렌드 분석을 제공하는 시스템�
 
 ### Infrastructure & DevOps
 - **Apache Kafka** – Asynchronous event streaming and message processing
-- **Zookeeper** – Kafka cluster coordination and metadata management
+- **KRaft mode** – Kafka metadata management and controller quorum without ZooKeeper
 
 - **Docker (Compose)** – Containerization of application and infrastructure and Multi-container orchestration for local development
 - **GitHub Actions** – CI pipeline for build and Docker image automation

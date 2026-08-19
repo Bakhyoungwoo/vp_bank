@@ -35,3 +35,7 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# Keep only the repository root README in Git; ignore other Markdown files.
+*.md
+!README.md
