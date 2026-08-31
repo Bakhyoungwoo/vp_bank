@@ -4,6 +4,7 @@ import lombok.Getter;
 import java.time.LocalDateTime;
 import java.util.List;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonFormat;
 @Getter
 public class NewsCreateRequest {
@@ -14,7 +15,8 @@ public class NewsCreateRequest {
     private String url;
     private String press;
     @JsonProperty("publishedAt")
+    @JsonAlias("published_at")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss", timezone = "Asia/Seoul")
     private LocalDateTime publishedAt;
-    private String keywords;
+    private Object keywords;
 }

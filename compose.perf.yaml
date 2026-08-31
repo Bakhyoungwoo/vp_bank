@@ -1,0 +1,11 @@
+services:
+  mysql:
+    container_name: vap-bank-perf-mysql
+    ports: !override
+      - "13307:3306"
+  redis:
+    container_name: vap-bank-perf-redis
+    ports: !override
+      - "16379:6379"
+  kafka:
+    container_name: vap-kafka
