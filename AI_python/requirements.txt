@@ -8,3 +8,5 @@ keybert
 sentence-transformers
 konlpy
 apscheduler
+openbb
+openbb-yfinance
