@@ -60,7 +60,9 @@ public class SecurityConfig {
                                 "/api/news/keywords/**",
                                 "/api/notifications/**",
                                 "/api/internal/**",
-                                "/api/search/**"
+                                "/api/search/**",
+                                "/api/market/**",
+                                "/api/stocks/**"
                         ).permitAll()
                         // Swagger UI
                         .requestMatchers(
