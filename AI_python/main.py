@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+import asyncio
 import json
 import os
 import requests
@@ -8,8 +9,7 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from crawler.naver_crawler import crawl_category, CATEGORIES
-from AI.keyword_extractor import extract_keywords
-from market.routes import router as market_router
+from market.routes import router as market_router, stocks_router
 
 # ==================================================
 # Spring API
@@ -81,6 +81,7 @@ def send_news_to_spring(article, category):
 # Crawler Job
 # ==================================================
 def scheduled_crawl_all_categories():
+    from AI.keyword_extractor import extract_keywords
     print("\n🔥 [CRAWLER] START")
 
     for category, code in CATEGORIES.items():
@@ -161,7 +162,7 @@ async def lifespan(app: FastAPI):
     scheduler = AsyncIOScheduler()
 
     # 🔥 서버 시작 시 1회 즉시 실행
-    scheduled_crawl_all_categories()
+    initial_crawl = asyncio.create_task(asyncio.to_thread(scheduled_crawl_all_categories))
 
     scheduler.add_job(
         scheduled_crawl_all_categories,
@@ -175,6 +176,8 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    if not initial_crawl.done():
+        initial_crawl.cancel()
     scheduler.shutdown()
     print("[SCHEDULER] stopped")
 
@@ -184,6 +187,7 @@ async def lifespan(app: FastAPI):
 # ==================================================
 app = FastAPI(lifespan=lifespan)
 app.include_router(market_router)
+app.include_router(stocks_router)
 
 
 @app.post("/crawl")

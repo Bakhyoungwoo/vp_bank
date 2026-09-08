@@ -3,6 +3,10 @@ from __future__ import annotations
 from datetime import date, timedelta
 from functools import lru_cache
 from typing import Any
+from urllib.parse import quote
+from urllib.request import Request, urlopen
+import json
+import math
 
 
 MARKET_TARGETS = (
@@ -29,7 +33,15 @@ def _records(result: Any) -> list[dict[str, Any]]:
         return []
     frame = frame.reset_index()
     frame = frame.where(frame.notna(), None)
-    return frame.to_dict(orient="records")
+    records = frame.to_dict(orient="records")
+    for record in records:
+        for key, value in record.items():
+            try:
+                if isinstance(value, (int, float)) and not math.isfinite(float(value)):
+                    record[key] = None
+            except (TypeError, ValueError):
+                continue
+    return records
 
 
 def _history(symbol: str, start: str, end: str, interval: str = "1d") -> list[dict[str, Any]]:
@@ -97,3 +109,65 @@ def get_history(symbol: str, days: int = 30) -> dict[str, Any]:
     end = date.today()
     rows = _history(symbol.upper(), (end - timedelta(days=days)).isoformat(), end.isoformat())
     return {"symbol": symbol.upper(), "provider": "openbb/yfinance", "items": rows}
+
+
+def _yahoo_search(query: str, limit: int = 10) -> list[dict[str, Any]]:
+    """Search Yahoo Finance symbols without requiring a user API key."""
+    url = f"https://query2.finance.yahoo.com/v1/finance/search?q={quote(query)}&quotesCount={limit}&newsCount=0"
+    request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urlopen(request, timeout=10) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    results = []
+    for item in payload.get("quotes", [])[:limit]:
+        symbol = item.get("symbol")
+        if not symbol or item.get("quoteType") not in {"EQUITY", "ETF", "INDEX"}:
+            continue
+        results.append({
+            "symbol": symbol,
+            "name": item.get("longname") or item.get("shortname") or symbol,
+            "exchange": item.get("exchange"),
+            "market": item.get("exchange", ""),
+            "type": item.get("quoteType"),
+            "provider": "yahoo-finance",
+        })
+    return results
+
+
+def search_stocks(query: str, limit: int = 10) -> dict[str, Any]:
+    query = query.strip()
+    if not query:
+        return {"query": query, "items": [], "provider": "yahoo-finance"}
+    return {"query": query, "items": _yahoo_search(query, limit), "provider": "yahoo-finance"}
+
+
+def _first_record(call: Any) -> dict[str, Any]:
+    rows = _records(call)
+    return rows[0] if rows else {}
+
+
+def get_stock_detail(symbol: str, days: int = 30) -> dict[str, Any]:
+    symbol = symbol.strip().upper()
+    obb = _obb()
+    detail: dict[str, Any] = {
+        "symbol": symbol,
+        "provider": "openbb/yfinance",
+        "quote": {},
+        "profile": {},
+        "financials": [],
+        "history": get_history(symbol, days)["items"],
+    }
+    try:
+        detail["quote"] = _first_record(obb.equity.price.quote(symbol=symbol, provider="yfinance"))
+    except Exception as exc:
+        detail["quoteError"] = str(exc)
+    try:
+        detail["profile"] = _first_record(obb.equity.profile(symbol=symbol, provider="yfinance"))
+    except Exception as exc:
+        detail["profileError"] = str(exc)
+    try:
+        detail["financials"] = _records(
+            obb.equity.fundamental.income(symbol=symbol, limit=5, provider="yfinance")
+        )
+    except Exception as exc:
+        detail["financialsError"] = str(exc)
+    return detail
