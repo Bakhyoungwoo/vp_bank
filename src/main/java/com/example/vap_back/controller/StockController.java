@@ -43,4 +43,28 @@ public class StockController {
         }
         return ResponseEntity.ok(stockService.detail(symbol, days));
     }
+
+    @GetMapping("/{symbol}/financials")
+    @Operation(summary = "醫낅ぉ ?щТ 議고쉶")
+    public ResponseEntity<Map<String, Object>> financials(
+            @PathVariable String symbol,
+            @RequestParam(defaultValue = "5") int limit
+    ) {
+        if (symbol.isBlank() || limit < 1 || limit > 20) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Invalid symbol or limit"));
+        }
+        return ResponseEntity.ok(stockService.financials(symbol, limit));
+    }
+
+    @GetMapping("/{symbol}/news")
+    @Operation(summary = "醫낅ぉ 愿???댁뒪 議고쉶")
+    public ResponseEntity<Map<String, Object>> news(
+            @PathVariable String symbol,
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        if (symbol.isBlank() || limit < 1 || limit > 30) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Invalid symbol or limit"));
+        }
+        return ResponseEntity.ok(stockService.news(symbol, limit));
+    }
 }

@@ -10,6 +10,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from crawler.naver_crawler import crawl_category, CATEGORIES
 from market.routes import router as market_router, stocks_router
+from analysis.routes import router as analysis_router
 
 # ==================================================
 # Spring API
@@ -188,6 +189,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.include_router(market_router)
 app.include_router(stocks_router)
+app.include_router(analysis_router)
 
 
 @app.post("/crawl")

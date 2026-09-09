@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 
-from market.openbb_provider import get_history, get_overview, get_stock_detail, search_stocks
+from market.openbb_provider import get_history, get_overview, get_stock_detail, get_stock_financials, get_stock_news, search_stocks
 
 
 router = APIRouter(prefix="/market", tags=["market"])
@@ -35,6 +35,24 @@ def stock_search(query: str = Query(min_length=1, max_length=80), limit: int = Q
         return search_stocks(query, limit)
     except Exception as exc:
         raise HTTPException(status_code=502, detail="종목 검색에 실패했습니다.") from exc
+
+
+@stocks_router.get("/{symbol}/financials")
+def stock_financials(symbol: str, limit: int = Query(default=5, ge=1, le=20)):
+    try:
+        return get_stock_financials(symbol, limit)
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail="OpenBB unavailable") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Financial data unavailable") from exc
+
+
+@stocks_router.get("/{symbol}/news")
+def stock_news(symbol: str, limit: int = Query(default=10, ge=1, le=30)):
+    try:
+        return get_stock_news(symbol, limit)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Related news unavailable") from exc
 
 
 @stocks_router.get("/{symbol}")

@@ -171,3 +171,41 @@ def get_stock_detail(symbol: str, days: int = 30) -> dict[str, Any]:
     except Exception as exc:
         detail["financialsError"] = str(exc)
     return detail
+
+
+def get_stock_financials(symbol: str, limit: int = 5) -> dict[str, Any]:
+    symbol = symbol.strip().upper()
+    rows = _records(_obb().equity.fundamental.income(
+        symbol=symbol, limit=limit, provider="yfinance"
+    ))
+    return {
+        "symbol": symbol,
+        "provider": "openbb/yfinance",
+        "available": bool(rows),
+        "asOf": date.today().isoformat(),
+        "items": rows,
+    }
+
+
+def get_stock_news(symbol: str, limit: int = 10) -> dict[str, Any]:
+    symbol = symbol.strip().upper()
+    url = f"https://query2.finance.yahoo.com/v1/finance/search?q={quote(symbol)}&quotesCount=0&newsCount={limit}"
+    request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urlopen(request, timeout=10) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    items = []
+    for item in payload.get("news", [])[:limit]:
+        items.append({
+            "title": item.get("title"),
+            "publisher": item.get("publisher"),
+            "url": item.get("link") or item.get("url"),
+            "publishedAt": item.get("providerPublishTime"),
+            "relatedSymbols": item.get("relatedTickers", []),
+        })
+    return {
+        "symbol": symbol,
+        "provider": "yahoo-finance",
+        "available": bool(items),
+        "asOf": date.today().isoformat(),
+        "items": items,
+    }
