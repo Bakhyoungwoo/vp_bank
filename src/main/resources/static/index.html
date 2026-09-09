@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VAP | 나를 위한 AI 뉴스 추천</title>
+  <meta name="description" content="관심사에 맞는 뉴스를 실시간으로 골라드리는 AI 뉴스 추천 서비스입니다.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Pretendard', 'system-ui', 'sans-serif'],
+            display: ['Outfit', 'Pretendard', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Pretendard', 'Outfit', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      background-color: #ffffff;
+    }
+    .keep-all { word-break: keep-all; }
+    .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s cubic-bezier(0.16,1,0.3,1), transform 0.6s cubic-bezier(0.16,1,0.3,1); }
+    .reveal.is-visible { opacity: 1; transform: translateY(0); }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .pulse-dot { animation: pulseDot 1.8s ease-in-out infinite; }
+    .cta-magnetic { transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s cubic-bezier(0.16,1,0.3,1); }
+    .cta-magnetic:hover { transform: scale(1.02) translateY(-1px); }
+    .cta-magnetic:active { transform: scale(0.98); }
+  </style>
+</head>
+<body class="bg-white text-zinc-900 antialiased selection:bg-emerald-200">
+
+  <!-- ============ NAVIGATION ============ -->
+  <header class="sticky top-0 z-40 border-b border-zinc-100 bg-white/90 backdrop-blur-sm">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="#top" class="flex items-center gap-2 shrink-0">
+        <span class="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50">
+          <iconify-icon icon="solar:cpu-bolt-bold" class="text-emerald-600 text-lg"></iconify-icon>
+        </span>
+        <span class="font-display font-bold text-lg tracking-tight">VAP</span>
+      </a>
+      <div class="flex items-center gap-3">
+        <a href="#market" class="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-600 hover:border-emerald-300 hover:text-emerald-600 transition-colors">
+          <iconify-icon icon="solar:chart-2-linear"></iconify-icon>
+          증시
+        </a>
+        <div id="authArea" class="flex items-center gap-2"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ AUTH MODAL (로그인 / 회원가입) ============ -->
+  <div id="authModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 backdrop-blur-sm px-4">
+    <div class="relative w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-6 md:p-8 shadow-2xl">
+      <button id="authModalClose" class="absolute top-4 right-4 flex h-9 w-9 items-center justify-center rounded-full text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100">
+        <iconify-icon icon="solar:close-circle-linear" class="text-xl"></iconify-icon>
+      </button>
+
+      <div class="flex items-center gap-2 mb-6">
+        <button id="authTabLogin" class="auth-tab flex-1 rounded-full px-4 py-2.5 text-sm font-semibold bg-emerald-500 text-white">로그인</button>
+        <button id="authTabSignup" class="auth-tab flex-1 rounded-full px-4 py-2.5 text-sm font-semibold text-zinc-500 border border-zinc-200">회원가입</button>
+      </div>
+
+      <p id="authError" class="hidden keep-all mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"></p>
+
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="text-xs text-zinc-500">이메일</label>
+          <input type="email" name="email" required class="mt-1.5 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none focus:border-emerald-400 focus:bg-white" placeholder="you@example.com">
+        </div>
+        <div>
+          <label class="text-xs text-zinc-500">비밀번호</label>
+          <input type="password" name="password" required class="mt-1.5 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none focus:border-emerald-400 focus:bg-white" placeholder="8자 이상">
+        </div>
+        <button type="submit" class="cta-magnetic w-full rounded-xl bg-emerald-500 text-white font-semibold text-base px-6 py-3.5 min-h-[48px] hover:bg-emerald-600">로그인</button>
+      </form>
+
+      <form id="signupForm" class="hidden space-y-4">
+        <div>
+          <label class="text-xs text-zinc-500">이메일</label>
+          <input type="email" name="email" required class="mt-1.5 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none focus:border-emerald-400 focus:bg-white" placeholder="you@example.com">
+        </div>
+        <div>
+          <label class="text-xs text-zinc-500">비밀번호 (8자 이상)</label>
+          <input type="password" name="password" required minlength="8" class="mt-1.5 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none focus:border-emerald-400 focus:bg-white" placeholder="8자 이상">
+        </div>
+        <div>
+          <label class="text-xs text-zinc-500">닉네임</label>
+          <input type="text" name="name" class="mt-1.5 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none focus:border-emerald-400 focus:bg-white" placeholder="하윤서">
+        </div>
+        <div>
+          <label class="text-xs text-zinc-500">관심 카테고리</label>
+          <select name="interestCategory" class="mt-1.5 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none focus:border-emerald-400 focus:bg-white">
+            <option value="it">IT</option>
+            <option value="economy">경제</option>
+            <option value="society">사회</option>
+            <option value="politics">정치</option>
+            <option value="world">세계</option>
+            <option value="culture">문화</option>
+          </select>
+        </div>
+        <button type="submit" class="cta-magnetic w-full rounded-xl bg-emerald-500 text-white font-semibold text-base px-6 py-3.5 min-h-[48px] hover:bg-emerald-600">회원가입</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ BOOKMARKS MODAL ============ -->
+  <div id="bookmarksModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 backdrop-blur-sm px-4">
+    <div class="relative w-full max-w-lg max-h-[80vh] flex flex-col rounded-3xl border border-zinc-200 bg-white p-6 md:p-8 shadow-2xl">
+      <button id="bookmarksModalClose" class="absolute top-4 right-4 flex h-9 w-9 items-center justify-center rounded-full text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100">
+        <iconify-icon icon="solar:close-circle-linear" class="text-xl"></iconify-icon>
+      </button>
+      <h3 class="text-lg font-bold mb-1">내 북마크</h3>
+      <p class="text-sm text-zinc-500 mb-5">저장한 기사를 다시 확인해보세요.</p>
+      <div id="bookmarksList" class="space-y-2 overflow-y-auto"></div>
+    </div>
+  </div>
+
+  <!-- ============ HERO ============ -->
+  <section id="top" class="relative overflow-hidden">
+    <div class="pointer-events-none absolute inset-0 overflow-hidden">
+      <div class="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-emerald-100/70 blur-3xl"></div>
+      <div class="absolute top-52 -left-32 h-96 w-96 rounded-full bg-emerald-50 blur-3xl"></div>
+    </div>
+
+    <div class="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-14 items-center py-20 md:py-28">
+      <div class="reveal">
+        <span class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-xs font-medium text-emerald-700">
+          <iconify-icon icon="solar:pulse-2-bold" class="text-sm"></iconify-icon>
+          AI 뉴스 추천
+        </span>
+
+        <h1 class="keep-all mt-6 text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-tight text-zinc-900">
+          당신이 클릭하기 전에,<br>
+          <span class="text-emerald-500">AI가 먼저</span> 알아챕니다
+        </h1>
+
+        <p class="keep-all mt-6 text-base md:text-lg text-zinc-600 leading-relaxed max-w-[52ch]">
+          매일 쏟아지는 뉴스 중에서, 지금 나에게 필요한 기사만 골라 보여드려요. 읽을수록 더 정확해집니다.
+        </p>
+
+        <div class="mt-8 flex flex-col sm:flex-row gap-3">
+          <a href="#recommend" class="cta-magnetic inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 text-white font-semibold text-lg px-8 py-4 min-h-[48px] hover:bg-emerald-600">
+            추천 뉴스 보기
+            <iconify-icon icon="solar:arrow-right-linear"></iconify-icon>
+          </a>
+          <button id="heroSignupBtn" type="button" class="cta-magnetic inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-200 text-zinc-700 font-semibold text-lg px-8 py-4 min-h-[48px] hover:bg-zinc-50">
+            회원가입하기
+          </button>
+        </div>
+      </div>
+
+      <div class="reveal relative">
+        <div class="relative rounded-3xl border border-zinc-200 bg-white shadow-xl shadow-zinc-200/50 p-6 md:p-8">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <span class="h-2.5 w-2.5 rounded-full bg-emerald-500 pulse-dot"></span>
+              <span class="text-sm font-semibold text-zinc-800">지금 뜨는 키워드</span>
+            </div>
+            <span class="text-xs text-zinc-400 font-display">LIVE</span>
+          </div>
+
+          <div id="categoryTabs" class="flex items-center gap-1.5 mb-5 overflow-x-auto pb-1"></div>
+
+          <ul id="keywordList" class="space-y-3 min-h-[220px]">
+            <li class="flex items-center justify-center rounded-xl bg-zinc-50 px-4 py-6 text-sm text-zinc-400">불러오는 중…</li>
+          </ul>
+
+          <div class="mt-6 text-center text-xs text-zinc-400">실시간으로 업데이트돼요</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MARKET ============ -->
+  <section id="market" class="py-20 md:py-28 bg-white border-b border-zinc-100">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="reveal flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div>
+          <span class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 pulse-dot"></span>
+            MARKET
+          </span>
+          <h2 class="keep-all mt-4 text-3xl md:text-4xl font-bold tracking-tight text-zinc-900">오늘의 증시</h2>
+          <p class="mt-3 text-zinc-600">주요 지수와 시장 관련 뉴스를 한눈에 확인하세요.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="marketUpdatedAt" class="text-xs text-zinc-400">시세를 불러오는 중…</span>
+          <button id="refreshMarketBtn" type="button" class="inline-flex items-center gap-2 rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-600 hover:bg-zinc-50">
+            <iconify-icon icon="solar:refresh-linear"></iconify-icon> 새로고침
+          </button>
+        </div>
+      </div>
+      <div id="marketList" class="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="sm:col-span-2 lg:col-span-5 rounded-2xl bg-zinc-50 p-8 text-center text-sm text-zinc-400">시세를 불러오는 중…</div>
+      </div>
+
+      <div class="reveal mt-14 flex items-end justify-between gap-4">
+        <div>
+          <h3 class="text-2xl font-bold tracking-tight text-zinc-900">증시 관련 뉴스</h3>
+          <p class="mt-2 text-sm text-zinc-500">수집된 경제 분야 최신 기사입니다.</p>
+        </div>
+        <a href="#recommend" class="text-sm font-semibold text-emerald-600 hover:text-emerald-700">추천 뉴스 전체 보기 →</a>
+      </div>
+      <div id="marketNewsList" class="mt-6 divide-y divide-zinc-100 rounded-2xl border border-zinc-200 bg-white">
+        <div class="p-8 text-center text-sm text-zinc-400">뉴스를 불러오는 중…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RECOMMEND ============ -->
+  <section id="recommend" class="py-20 md:py-28 bg-zinc-50 border-y border-zinc-100">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="reveal flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div class="max-w-2xl">
+          <h2 class="keep-all text-3xl md:text-4xl font-bold tracking-tight leading-snug text-zinc-900">
+            지금, 나를 위한 뉴스
+          </h2>
+          <p class="keep-all mt-4 text-zinc-600 text-base md:text-lg leading-relaxed">
+            관심사에 맞는 기사를 모아봤어요. 로그인하면 내 취향에 더 가까워져요.
+          </p>
+        </div>
+        <button id="refreshRecommendBtn" class="cta-magnetic shrink-0 inline-flex items-center gap-2 rounded-xl border border-zinc-200 text-zinc-700 font-semibold text-sm px-5 py-3 bg-white hover:bg-zinc-50">
+          <iconify-icon icon="solar:refresh-linear"></iconify-icon>
+          새로고침
+        </button>
+      </div>
+
+      <div id="recommendList" class="reveal mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="rounded-3xl border border-zinc-200 bg-white p-7 text-sm text-zinc-400 md:col-span-3 text-center py-16">불러오는 중…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA ============ -->
+  <section id="cta" class="py-24 md:py-32 text-center">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="keep-all reveal text-3xl md:text-5xl font-bold tracking-tight leading-tight text-zinc-900">
+        지금 바로 시작해보세요
+      </h2>
+      <p class="keep-all reveal mt-6 text-zinc-600 text-base md:text-lg leading-relaxed">
+        회원가입하고 나만의 뉴스 피드를 만들어보세요.
+      </p>
+      <div class="reveal mt-10">
+        <button id="ctaSignupBtn" type="button" class="cta-magnetic inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 text-white font-semibold text-lg px-8 py-4 min-h-[48px] hover:bg-emerald-600">
+          무료로 시작하기
+          <iconify-icon icon="solar:arrow-right-linear"></iconify-icon>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="border-t border-zinc-100 py-10">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <span class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50">
+          <iconify-icon icon="solar:cpu-bolt-bold" class="text-emerald-600 text-lg"></iconify-icon>
+        </span>
+        <span class="font-display font-bold">VAP</span>
+        <span class="keep-all text-sm text-zinc-400 ml-2">— AI 뉴스 추천 서비스</span>
+      </div>
+      <p class="text-xs text-zinc-400">© 2026 VAP. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Scroll reveal
+    const revealEls = document.querySelectorAll('.reveal');
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' });
+    revealEls.forEach((el) => revealObserver.observe(el));
+  </script>
+
+  <!-- ============ vp_bank BACKEND INTEGRATION ============ -->
+  <!-- 이 페이지는 vp_bank Spring Boot 서버(같은 오리진)에 의해 서빙되는 것을 전제로
+       상대 경로(/api/...)로 실제 REST API를 호출합니다. -->
+  <script>
+    const CATEGORIES = [
+      { code: 'it', label: 'IT' },
+      { code: 'economy', label: '경제' },
+      { code: 'society', label: '사회' },
+      { code: 'politics', label: '정치' },
+      { code: 'world', label: '세계' },
+      { code: 'culture', label: '문화' },
+    ];
+    let currentCategory = 'it';
+    let currentUser = null;
+
+    function api(path, options = {}) {
+      return fetch(path, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+        ...options,
+      });
+    }
+
+    function formatPublished(t) {
+      if (!t) return '';
+      const d = new Date(t);
+      if (isNaN(d.getTime())) return t;
+      return d.toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    // ---------- 카테고리 탭 & 실시간 키워드 (GET /api/news/keywords/{category}) ----------
+    function categoryBtnClass(active) {
+      return 'shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ' +
+        (active ? 'bg-emerald-500 text-white' : 'bg-zinc-100 text-zinc-500 hover:text-zinc-800');
+    }
+
+    function renderCategoryTabs() {
+      const wrap = document.getElementById('categoryTabs');
+      wrap.innerHTML = '';
+      CATEGORIES.forEach((cat) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = cat.label;
+        btn.className = categoryBtnClass(cat.code === currentCategory);
+        btn.addEventListener('click', () => {
+          if (currentCategory === cat.code) return;
+          currentCategory = cat.code;
+          renderCategoryTabs();
+          loadKeywords();
+        });
+        wrap.appendChild(btn);
+      });
+    }
+
+    function renderKeywordList(items) {
+      const ul = document.getElementById('keywordList');
+      ul.innerHTML = '';
+      if (!items || items.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'keep-all flex flex-col items-center justify-center gap-1 rounded-xl bg-zinc-50 px-4 py-8 text-center min-h-[220px]';
+        const p1 = document.createElement('p');
+        p1.className = 'text-sm text-zinc-500';
+        p1.textContent = '아직 뜨는 키워드가 없어요.';
+        const p2 = document.createElement('p');
+        p2.className = 'text-xs text-zinc-400';
+        p2.textContent = '잠시 후 다시 확인해보세요.';
+        li.appendChild(p1);
+        li.appendChild(p2);
+        ul.appendChild(li);
+        return;
+      }
+      items.forEach((item, idx) => {
+        const li = document.createElement('li');
+        li.className = 'flex items-center justify-between rounded-xl bg-zinc-50 px-4 py-3';
+        const left = document.createElement('span');
+        left.className = 'flex items-center gap-3';
+        const rank = document.createElement('span');
+        rank.className = 'font-display text-emerald-500 font-bold w-5';
+        rank.textContent = String(idx + 1);
+        const kw = document.createElement('span');
+        kw.className = 'text-zinc-800';
+        kw.textContent = item.keyword;
+        left.appendChild(rank);
+        left.appendChild(kw);
+        const right = document.createElement('span');
+        right.className = 'text-xs text-emerald-600 font-display';
+        right.textContent = `언급 ${item.score}회`;
+        li.appendChild(left);
+        li.appendChild(right);
+        ul.appendChild(li);
+      });
+    }
+
+    async function loadKeywords() {
+      try {
+        const res = await api(`/api/news/keywords/${currentCategory}`);
+        const data = res.ok ? await res.json() : [];
+        renderKeywordList(data);
+      } catch (e) {
+        renderKeywordList([]);
+      }
+    }
+
+    // ---------- 추천 뉴스 (GET /api/news/recommend) ----------
+    function renderRecommendList(items) {
+      const wrap = document.getElementById('recommendList');
+      wrap.innerHTML = '';
+      if (!items || items.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'keep-all rounded-3xl border border-zinc-200 bg-white p-7 text-sm text-zinc-400 md:col-span-3 text-center py-16';
+        empty.textContent = '아직 준비된 추천 기사가 없어요. 잠시 후 다시 확인해주세요.';
+        wrap.appendChild(empty);
+        return;
+      }
+      items.forEach((item) => {
+        const card = document.createElement('div');
+        card.className = 'rounded-3xl border border-zinc-200 bg-white p-6 flex flex-col justify-between gap-4 hover:shadow-md transition-shadow';
+
+        const top = document.createElement('div');
+        const metaRow = document.createElement('div');
+        metaRow.className = 'flex items-center justify-between text-xs text-zinc-400 mb-3';
+        const press = document.createElement('span');
+        press.textContent = item.press || '출처 미상';
+        const time = document.createElement('span');
+        time.textContent = formatPublished(item.time);
+        metaRow.appendChild(press);
+        metaRow.appendChild(time);
+
+        const title = document.createElement('a');
+        title.href = item.url || '#';
+        title.target = '_blank';
+        title.rel = 'noopener';
+        title.className = 'keep-all font-semibold text-zinc-900 leading-snug hover:text-emerald-600 transition-colors';
+        title.textContent = item.title || '(제목 없음)';
+
+        top.appendChild(metaRow);
+        top.appendChild(title);
+
+        if (Array.isArray(item.matchedKeywords) && item.matchedKeywords.length > 0) {
+          const chipWrap = document.createElement('div');
+          chipWrap.className = 'flex flex-wrap gap-1.5 mt-3';
+          item.matchedKeywords.slice(0, 4).forEach((kw) => {
+            const chip = document.createElement('span');
+            chip.className = 'rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-1 text-[11px] text-emerald-700';
+            chip.textContent = '#' + kw;
+            chipWrap.appendChild(chip);
+          });
+          top.appendChild(chipWrap);
+        }
+
+        const bottom = document.createElement('div');
+        bottom.className = 'flex items-center justify-between';
+
+        const linkBtn = document.createElement('a');
+        linkBtn.href = item.url || '#';
+        linkBtn.target = '_blank';
+        linkBtn.rel = 'noopener';
+        linkBtn.className = 'inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-900';
+        const linkIcon = document.createElement('iconify-icon');
+        linkIcon.setAttribute('icon', 'solar:link-linear');
+        const linkText = document.createElement('span');
+        linkText.textContent = '원문 보기';
+        linkBtn.appendChild(linkIcon);
+        linkBtn.appendChild(linkText);
+
+        const bmBtn = document.createElement('button');
+        bmBtn.type = 'button';
+        bmBtn.className = 'flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 text-zinc-400 hover:text-emerald-600 hover:border-emerald-300';
+        const bmIcon = document.createElement('iconify-icon');
+        bmIcon.setAttribute('icon', 'solar:bookmark-linear');
+        bmBtn.appendChild(bmIcon);
+        bmBtn.addEventListener('click', () => toggleBookmark(item, bmIcon));
+
+        bottom.appendChild(linkBtn);
+        bottom.appendChild(bmBtn);
+
+        card.appendChild(top);
+        card.appendChild(bottom);
+        wrap.appendChild(card);
+      });
+    }
+
+    async function loadRecommend() {
+      const wrap = document.getElementById('recommendList');
+      wrap.innerHTML = '<div class="rounded-3xl border border-zinc-200 bg-white p-7 text-sm text-zinc-400 md:col-span-3 text-center py-16">불러오는 중…</div>';
+      try {
+        const res = await api('/api/news/recommend');
+        const data = res.ok ? await res.json() : [];
+        renderRecommendList(data);
+      } catch (e) {
+        renderRecommendList([]);
+      }
+    }
+
+    async function toggleBookmark(item, iconEl) {
+      if (!currentUser) {
+        openAuthModal('login');
+        return;
+      }
+      try {
+        const res = await api('/api/bookmarks', {
+          method: 'POST',
+          body: JSON.stringify({ url: item.url, title: item.title, press: item.press, time: item.time }),
+        });
+        const msg = await res.text();
+        iconEl.setAttribute('icon', msg.includes('저장') ? 'solar:bookmark-bold' : 'solar:bookmark-linear');
+      } catch (e) {
+        console.error('[bookmark] failed', e);
+      }
+    }
+
+    // ---------- 내 북마크 모달 (GET/POST /api/bookmarks) ----------
+    async function openBookmarksModal() {
+      document.getElementById('bookmarksModal').classList.remove('hidden');
+      const list = document.getElementById('bookmarksList');
+      list.innerHTML = '<p class="text-sm text-zinc-400 text-center py-8">불러오는 중…</p>';
+      try {
+        const res = await api('/api/bookmarks');
+        const data = res.ok ? await res.json() : [];
+        list.innerHTML = '';
+        if (data.length === 0) {
+          list.innerHTML = '<p class="keep-all text-sm text-zinc-400 text-center py-8">북마크한 기사가 없어요. 추천 뉴스에서 북마크 아이콘을 눌러보세요.</p>';
+          return;
+        }
+        data.forEach((bm) => {
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between gap-3 rounded-xl bg-zinc-50 border border-zinc-200 px-4 py-3';
+          const info = document.createElement('div');
+          info.className = 'min-w-0';
+          const a = document.createElement('a');
+          a.href = bm.newsUrl;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.className = 'block truncate text-sm font-semibold text-zinc-900 hover:text-emerald-600';
+          a.textContent = bm.title || bm.newsUrl;
+          const meta = document.createElement('p');
+          meta.className = 'text-xs text-zinc-400 mt-1';
+          meta.textContent = [bm.press, bm.publishedAt].filter(Boolean).join(' · ');
+          info.appendChild(a);
+          info.appendChild(meta);
+
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'shrink-0 flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 text-zinc-400 hover:text-red-500 hover:border-red-200';
+          const delIcon = document.createElement('iconify-icon');
+          delIcon.setAttribute('icon', 'solar:trash-bin-minimalistic-linear');
+          delBtn.appendChild(delIcon);
+          delBtn.addEventListener('click', async () => {
+            await api('/api/bookmarks', { method: 'POST', body: JSON.stringify({ url: bm.newsUrl }) });
+            row.remove();
+          });
+
+          row.appendChild(info);
+          row.appendChild(delBtn);
+          list.appendChild(row);
+        });
+      } catch (e) {
+        list.innerHTML = '<p class="text-sm text-red-500 text-center py-8">북마크를 불러오지 못했어요.</p>';
+      }
+    }
+
+    // ---------- 인증 (POST /api/users/signup, /login, /logout, GET /me) ----------
+    function setAuthAreaHTML(container, user) {
+      if (!container) return;
+      container.innerHTML = '';
+      if (user) {
+        const bmBtn = document.createElement('button');
+        bmBtn.type = 'button';
+        bmBtn.className = 'inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-4 py-2 text-sm text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50';
+        bmBtn.textContent = '내 북마크';
+        bmBtn.addEventListener('click', openBookmarksModal);
+
+        const nameChip = document.createElement('span');
+        nameChip.className = 'hidden sm:inline text-sm text-zinc-500';
+        nameChip.textContent = user.nickname + '님';
+
+        const logoutBtn = document.createElement('button');
+        logoutBtn.type = 'button';
+        logoutBtn.className = 'cta-magnetic inline-flex items-center gap-1.5 rounded-full bg-emerald-500 text-white text-sm font-semibold px-5 py-2.5 hover:bg-emerald-600';
+        logoutBtn.textContent = '로그아웃';
+        logoutBtn.addEventListener('click', doLogout);
+
+        container.appendChild(bmBtn);
+        container.appendChild(nameChip);
+        container.appendChild(logoutBtn);
+      } else {
+        const loginBtn = document.createElement('button');
+        loginBtn.type = 'button';
+        loginBtn.className = 'cta-magnetic inline-flex items-center gap-1.5 rounded-full bg-emerald-500 text-white text-sm font-semibold px-5 py-2.5 hover:bg-emerald-600';
+        loginBtn.textContent = '로그인';
+        loginBtn.addEventListener('click', () => openAuthModal('login'));
+        container.appendChild(loginBtn);
+      }
+    }
+
+    function renderAuthUI() {
+      setAuthAreaHTML(document.getElementById('authArea'), currentUser);
+    }
+
+    async function checkAuth() {
+      try {
+        const res = await api('/api/users/me');
+        currentUser = res.ok ? await res.json() : null;
+      } catch (e) {
+        currentUser = null;
+      }
+      renderAuthUI();
+    }
+
+    async function doLogout() {
+      try {
+        await api('/api/users/logout', { method: 'POST' });
+      } catch (e) {}
+      currentUser = null;
+      renderAuthUI();
+      loadRecommend();
+    }
+
+    function openAuthModal(tab) {
+      document.getElementById('authModal').classList.remove('hidden');
+      switchAuthTab(tab || 'login');
+    }
+    function closeAuthModal() {
+      document.getElementById('authModal').classList.add('hidden');
+    }
+    function switchAuthTab(tab) {
+      const loginForm = document.getElementById('loginForm');
+      const signupForm = document.getElementById('signupForm');
+      const tabLogin = document.getElementById('authTabLogin');
+      const tabSignup = document.getElementById('authTabSignup');
+      document.getElementById('authError').classList.add('hidden');
+      const activeCls = 'auth-tab flex-1 rounded-full px-4 py-2.5 text-sm font-semibold bg-emerald-500 text-white';
+      const inactiveCls = 'auth-tab flex-1 rounded-full px-4 py-2.5 text-sm font-semibold text-zinc-500 border border-zinc-200';
+      if (tab === 'signup') {
+        loginForm.classList.add('hidden');
+        signupForm.classList.remove('hidden');
+        tabSignup.className = activeCls;
+        tabLogin.className = inactiveCls;
+      } else {
+        signupForm.classList.add('hidden');
+        loginForm.classList.remove('hidden');
+        tabLogin.className = activeCls;
+        tabSignup.className = inactiveCls;
+      }
+    }
+    function showAuthMessage(msg, type) {
+      const el = document.getElementById('authError');
+      el.textContent = msg;
+      el.className = type === 'success'
+        ? 'keep-all mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700'
+        : 'keep-all mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600';
+    }
+
+    document.getElementById('authModalClose').addEventListener('click', closeAuthModal);
+    document.getElementById('authModal').addEventListener('click', (e) => {
+      if (e.target.id === 'authModal') closeAuthModal();
+    });
+    document.getElementById('authTabLogin').addEventListener('click', () => switchAuthTab('login'));
+    document.getElementById('authTabSignup').addEventListener('click', () => switchAuthTab('signup'));
+    document.getElementById('heroSignupBtn').addEventListener('click', () => openAuthModal('signup'));
+    document.getElementById('ctaSignupBtn').addEventListener('click', () => openAuthModal('signup'));
+    document.getElementById('bookmarksModalClose').addEventListener('click', () => {
+      document.getElementById('bookmarksModal').classList.add('hidden');
+    });
+    document.getElementById('bookmarksModal').addEventListener('click', (e) => {
+      if (e.target.id === 'bookmarksModal') document.getElementById('bookmarksModal').classList.add('hidden');
+    });
+    document.getElementById('refreshRecommendBtn').addEventListener('click', loadRecommend);
+
+    // ---------- 오늘의 증시 (GET /api/market/overview) ----------
+    function renderMarketList(items) {
+      const wrap = document.getElementById('marketList');
+      wrap.innerHTML = '';
+      if (!items || items.length === 0) {
+        wrap.innerHTML = '<div class="sm:col-span-2 lg:col-span-5 rounded-2xl bg-zinc-50 p-8 text-center text-sm text-zinc-400">시장 데이터를 불러오지 못했습니다.</div>';
+        return;
+      }
+
+      items.forEach((item) => {
+        const card = document.createElement('article');
+        card.className = 'rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm';
+        const name = document.createElement('h4');
+        name.className = 'text-sm font-semibold text-zinc-500';
+        name.textContent = item.name || item.code;
+        const price = document.createElement('p');
+        price.className = 'mt-3 text-2xl font-bold text-zinc-900';
+        price.textContent = item.available && item.price != null
+          ? Number(item.price).toLocaleString('ko-KR', { maximumFractionDigits: 2 })
+          : '데이터 없음';
+        const change = document.createElement('p');
+        const changeValue = Number(item.changePercent);
+        const isPositive = Number.isFinite(changeValue) && changeValue > 0;
+        const isNegative = Number.isFinite(changeValue) && changeValue < 0;
+        change.className = `mt-2 text-sm font-semibold ${isPositive ? 'text-red-500' : isNegative ? 'text-blue-500' : 'text-zinc-400'}`;
+        change.textContent = item.available && Number.isFinite(changeValue)
+          ? `${changeValue > 0 ? '+' : ''}${changeValue.toFixed(2)}%`
+          : (item.error ? '조회 실패' : '장외/지연');
+        const meta = document.createElement('p');
+        meta.className = 'mt-3 text-xs text-zinc-400';
+        meta.textContent = item.available ? `제공: ${item.provider || '금융 데이터'}` : '데이터를 확인할 수 없습니다.';
+        card.append(name, price, change, meta);
+        wrap.appendChild(card);
+      });
+    }
+
+    async function loadMarketOverview() {
+      const updated = document.getElementById('marketUpdatedAt');
+      try {
+        const res = await api('/api/market/overview');
+        if (!res.ok) throw new Error(`market status: ${res.status}`);
+        const data = await res.json();
+        renderMarketList(data.items || []);
+        updated.textContent = data.updatedAt ? `기준일 ${formatPublished(data.updatedAt)}` : '방금 업데이트';
+      } catch (e) {
+        renderMarketList([]);
+        updated.textContent = '시장 데이터를 불러오지 못했습니다.';
+        console.error('[market] overview failed', e);
+      }
+    }
+
+    async function loadMarketNews() {
+      const wrap = document.getElementById('marketNewsList');
+      try {
+        const res = await api('/api/news/economy');
+        const items = res.ok ? await res.json() : [];
+        wrap.innerHTML = '';
+        if (!items.length) {
+          wrap.innerHTML = '<div class="p-8 text-center text-sm text-zinc-400">관련 뉴스가 없습니다.</div>';
+          return;
+        }
+        items.slice(0, 5).forEach((item) => {
+          const row = document.createElement('a');
+          row.href = item.url || '#';
+          row.target = '_blank';
+          row.rel = 'noopener';
+          row.className = 'block p-4 hover:bg-zinc-50';
+          row.innerHTML = `<p class="text-sm font-semibold text-zinc-800">${item.title || '제목 없음'}</p><p class="mt-1 text-xs text-zinc-400">${item.press || '출처 미상'} · ${formatPublished(item.publishedAt)}</p>`;
+          wrap.appendChild(row);
+        });
+      } catch (e) {
+        wrap.innerHTML = '<div class="p-8 text-center text-sm text-zinc-400">관련 뉴스를 불러오지 못했습니다.</div>';
+        console.error('[market] news failed', e);
+      }
+    }
+
+    document.getElementById('refreshMarketBtn').addEventListener('click', () => {
+      loadMarketOverview();
+      loadMarketNews();
+    });
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        const res = await api('/api/users/login', {
+          method: 'POST',
+          body: JSON.stringify({ email: fd.get('email'), password: fd.get('password') }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          showAuthMessage(err.message || '로그인에 실패했어요.', 'error');
+          return;
+        }
+        closeAuthModal();
+        await checkAuth();
+        loadRecommend();
+      } catch (e) {
+        showAuthMessage('서버에 연결할 수 없어요.', 'error');
+      }
+    });
+
+    document.getElementById('signupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        const res = await api('/api/users/signup', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: fd.get('email'),
+            password: fd.get('password'),
+            name: fd.get('name'),
+            interestCategory: fd.get('interestCategory'),
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          showAuthMessage(err.message || '회원가입에 실패했어요.', 'error');
+          return;
+        }
+        e.target.reset();
+        switchAuthTab('login');
+        showAuthMessage('회원가입이 완료되었어요. 로그인해주세요.', 'success');
+      } catch (e) {
+        showAuthMessage('서버에 연결할 수 없어요.', 'error');
+      }
+    });
+
+    // ---------- 초기 로드 & 폴링 ----------
+    renderCategoryTabs();
+    checkAuth();
+    loadKeywords();
+    loadRecommend();
+    loadMarketOverview();
+    loadMarketNews();
+
+    setInterval(loadKeywords, 15000);
+  </script>
+</body>
+</html>
