@@ -67,3 +67,62 @@ def score_momentum(metrics: dict[str, Any]) -> tuple[int | None, list[str]]:
         score += 15 if volume_ratio > 1.5 else 0
         evidence.append(f"최근 거래량/평균 거래량 {volume_ratio:.2f}배")
     return max(0, min(100, score)), evidence
+
+
+def normalize_financials(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Normalize common OpenBB/yfinance financial fields without inventing values."""
+    normalized = []
+    for row in rows:
+        revenue = _field(row, "revenue", "total_revenue", "totalRevenue")
+        operating_income = _field(row, "operating_income", "operatingIncome")
+        net_income = _field(row, "net_income", "netIncome", "net_income_common_stockholders")
+        eps = _field(row, "eps", "diluted_eps", "dilutedEPS", "basic_eps")
+        normalized.append({
+            "period": row.get("fiscal_period") or row.get("period") or row.get("date"),
+            "revenue": revenue,
+            "operatingIncome": operating_income,
+            "netIncome": net_income,
+            "eps": eps,
+            "operatingMargin": operating_income / revenue if operating_income is not None and revenue else None,
+        })
+    usable = [item for item in normalized if any(value is not None for value in item.values())]
+    latest = usable[0] if usable else {}
+    previous = usable[1] if len(usable) > 1 else {}
+
+    def growth(field: str) -> float | None:
+        current, prior = latest.get(field), previous.get(field)
+        return ((current / prior) - 1) * 100 if current is not None and prior not in (None, 0) else None
+
+    return {
+        "available": bool(usable),
+        "latest": latest,
+        "previous": previous,
+        "growthPercent": {
+            "revenue": growth("revenue"),
+            "operatingIncome": growth("operatingIncome"),
+            "netIncome": growth("netIncome"),
+            "eps": growth("eps"),
+        },
+        "items": usable,
+        "evidence": ["OpenBB fundamental income data"] if usable else [],
+    }
+
+
+def score_financials(financials: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    if not financials.get("available"):
+        unavailable = {"score": None, "evidence": ["재무 데이터 없음"]}
+        return {"growth": unavailable, "profitability": unavailable, "valuation": unavailable}
+
+    growth = financials.get("growthPercent", {})
+    growth_values = [value for value in growth.values() if value is not None]
+    growth_score = round(max(0, min(100, 50 + mean(growth_values) / 2))) if growth_values else None
+    margin = financials.get("latest", {}).get("operatingMargin")
+    profitability_score = round(max(0, min(100, 50 + margin * 100))) if margin is not None else None
+    return {
+        "growth": {"score": growth_score, "evidence": [f"재무 성장률 {growth}"]},
+        "profitability": {
+            "score": profitability_score,
+            "evidence": [f"최근 영업이익률 {margin:.2%}"] if margin is not None else ["영업이익률 없음"],
+        },
+        "valuation": {"score": None, "evidence": ["PER/PBR 데이터가 확인되지 않아 계산하지 않음"]},
+    }
