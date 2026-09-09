@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -44,10 +45,23 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // 개인화 기능
+                        // 프론트엔드 정적 리소스(index.html 등) 공개
+                        .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
+                        .requestMatchers("/", "/index.html", "/favicon.ico").permitAll()
+                        // 클릭 로그 기록은 인증 필수
+                        // (recommend는 컨트롤러에서 비로그인 시 anonymous 기본 추천으로 처리하므로 인증 불필요 - permitAll 목록에서 매칭)
                         .requestMatchers(
-                                "/api/news/recommend",
                                 "/api/news/click"
+                        ).authenticated()
+                        // 증시와 뉴스 등 사용자 기능은 로그인 후에만 접근 허용
+                        .requestMatchers(
+                                "/api/news/**",
+                                "/api/market/**",
+                                "/api/stocks/**",
+                                "/api/ai/**",
+                                "/api/notifications/**",
+                                "/api/search/**",
+                                "/api/users/me"
                         ).authenticated()
                         // 북마크는 인증 필수
                         .requestMatchers("/api/bookmarks/**").authenticated()
@@ -55,14 +69,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/password").authenticated()
                         // 크롤러, SSE, 조회, 회원가입, 로그아웃
                         .requestMatchers(
-                                "/api/users/**",
-                                "/api/news/**",
-                                "/api/news/keywords/**",
-                                "/api/notifications/**",
+                                "/api/users/signup",
+                                "/api/users/login",
+                                "/api/users/logout",
                                 "/api/internal/**",
-                                "/api/search/**",
-                                "/api/market/**",
-                                "/api/stocks/**"
+                                "/api/health"
                         ).permitAll()
                         // Swagger UI
                         .requestMatchers(

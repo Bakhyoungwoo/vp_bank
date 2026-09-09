@@ -24,7 +24,8 @@ spring:
 
   kafka:
     # 운영 환경에서는 kafka:9092를 사용합니다.
-    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    # Local Compose exposes Kafka through the host port 29093.
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:29093}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
