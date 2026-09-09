@@ -6,6 +6,7 @@ from typing import Any
 
 
 def _number(value: Any) -> float | None:
+    """Convert a provider value to a number; return None for missing/non-numeric data."""
     try:
         return None if value is None else float(value)
     except (TypeError, ValueError):
@@ -13,6 +14,7 @@ def _number(value: Any) -> float | None:
 
 
 def _field(row: dict[str, Any], *names: str) -> float | None:
+    """Read the first matching numeric field from a provider response row."""
     lowered = {str(key).lower(): value for key, value in row.items()}
     for name in names:
         value = _number(lowered.get(name.lower()))
@@ -22,6 +24,8 @@ def _field(row: dict[str, Any], *names: str) -> float | None:
 
 
 def price_metrics(history: list[dict[str, Any]]) -> dict[str, Any]:
+    """Calculate reproducible price, volume, return, and volatility metrics."""
+    # Close prices drive return/volatility; volumes drive unusual-volume detection.
     closes = [_field(row, "close", "adj_close") for row in history]
     closes = [value for value in closes if value is not None]
     volumes = [_field(row, "volume") for row in history]
@@ -29,13 +33,13 @@ def price_metrics(history: list[dict[str, Any]]) -> dict[str, Any]:
     if not closes:
         return {"available": False, "evidence": []}
 
-    first, last = closes[0], closes[-1]
+    first, last = closes[0], closes[-1]  # Period start/end prices.
     return_pct = ((last / first) - 1) * 100 if first else None
     previous = closes[-2] if len(closes) > 1 else None
     daily_pct = ((last / previous) - 1) * 100 if previous else None
-    average_volume = mean(volumes[:-1]) if len(volumes) > 1 else None
-    latest_volume = volumes[-1] if volumes else None
-    volume_ratio = latest_volume / average_volume if average_volume else None
+    average_volume = mean(volumes[:-1]) if len(volumes) > 1 else None  # Baseline volume.
+    latest_volume = volumes[-1] if volumes else None  # Most recent volume.
+    volume_ratio = latest_volume / average_volume if average_volume else None  # Spike ratio.
     returns = [((b / a) - 1) for a, b in zip(closes, closes[1:]) if a]
     volatility = (sqrt(mean([(item - mean(returns)) ** 2 for item in returns])) * 100
                   if len(returns) > 1 else None)
@@ -54,6 +58,7 @@ def price_metrics(history: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def score_momentum(metrics: dict[str, Any]) -> tuple[int | None, list[str]]:
+    """Turn price metrics into a bounded momentum score and human-readable evidence."""
     if not metrics.get("available"):
         return None, ["가격 데이터 없음"]
     score = 50
@@ -71,7 +76,7 @@ def score_momentum(metrics: dict[str, Any]) -> tuple[int | None, list[str]]:
 
 def normalize_financials(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Normalize common OpenBB/yfinance financial fields without inventing values."""
-    normalized = []
+    normalized = []  # Project-standard rows independent of Provider field names.
     for row in rows:
         revenue = _field(row, "revenue", "total_revenue", "totalRevenue")
         operating_income = _field(row, "operating_income", "operatingIncome")
@@ -86,10 +91,11 @@ def normalize_financials(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "operatingMargin": operating_income / revenue if operating_income is not None and revenue else None,
         })
     usable = [item for item in normalized if any(value is not None for value in item.values())]
-    latest = usable[0] if usable else {}
-    previous = usable[1] if len(usable) > 1 else {}
+    latest = usable[0] if usable else {}  # Newest row returned by OpenBB.
+    previous = usable[1] if len(usable) > 1 else {}  # Comparison row.
 
     def growth(field: str) -> float | None:
+        """Calculate period-over-period growth without dividing by zero."""
         current, prior = latest.get(field), previous.get(field)
         return ((current / prior) - 1) * 100 if current is not None and prior not in (None, 0) else None
 
@@ -109,6 +115,7 @@ def normalize_financials(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def score_financials(financials: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Create growth/profitability scores only when source values are available."""
     if not financials.get("available"):
         unavailable = {"score": None, "evidence": ["재무 데이터 없음"]}
         return {"growth": unavailable, "profitability": unavailable, "valuation": unavailable}

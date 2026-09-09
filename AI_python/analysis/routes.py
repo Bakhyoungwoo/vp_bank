@@ -10,6 +10,7 @@ router = APIRouter(prefix="/ai", tags=["ai-analysis"])
 
 @router.post("/stocks/{symbol}/analysis")
 def analyze_stock(symbol: str, days: int = Query(default=30, ge=5, le=3650)):
+    """Fetch OpenBB data and return a deterministic analysis draft for later narration."""
     try:
         detail = get_stock_detail(symbol, days)
     except ImportError as exc:
@@ -17,6 +18,7 @@ def analyze_stock(symbol: str, days: int = Query(default=30, ge=5, le=3650)):
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Stock data unavailable") from exc
 
+    # Keep raw provider data out of the scoring logic by normalizing each domain first.
     metrics = price_metrics(detail.get("history", []))
     momentum_score, momentum_evidence = score_momentum(metrics)
     financials = normalize_financials(detail.get("financials", []))

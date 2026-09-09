@@ -23,6 +23,7 @@ public class AiAnalysisController {
     @Value("${ai.base-url:http://localhost:8000}")
     private String aiBaseUrl;
 
+    /** Proxies an analysis request to the Python service and preserves its status payload. */
     @PostMapping("/stocks/{symbol}/analysis")
     public ResponseEntity<Map<String, Object>> analyzeStock(
             @PathVariable String symbol,
@@ -31,7 +32,7 @@ public class AiAnalysisController {
         if (symbol.isBlank() || days < 5 || days > 3650) {
             return ResponseEntity.badRequest().body(Map.of("message", "Invalid symbol or days"));
         }
-        String url = aiBaseUrl + "/ai/stocks/"
+        String url = aiBaseUrl + "/ai/stocks/" // Python analysis endpoint.
                 + UriUtils.encodePathSegment(symbol, StandardCharsets.UTF_8)
                 + "/analysis?days=" + days;
         try {

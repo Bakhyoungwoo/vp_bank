@@ -4,6 +4,8 @@ from analysis.metrics import normalize_financials, price_metrics, score_financia
 
 
 class MetricsTest(unittest.TestCase):
+    """Regression tests for deterministic analysis calculations."""
+
     def test_price_metrics_calculates_return_and_volume_ratio(self):
         result = price_metrics([
             {"close": 100, "volume": 10},
