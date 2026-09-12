@@ -65,6 +65,20 @@ services:
     networks:
       - vap-network
 
+  ai:
+    build: ./AI_python
+    container_name: vap-ai
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      SPRING_HOST: backend
+    ports:
+      - "8000:8000"
+    networks:
+      - vap-network
+
   backend:
     image: ${DOCKER_USERNAME}/vap-backend:latest
     container_name: vap-backend
@@ -75,8 +89,12 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      ai:
+        condition: service_started
     env_file:
       - .env
+    environment:
+      AI_BASE_URL: http://ai:8000
     ports:
       - "8080:8080"
     networks:

@@ -15,8 +15,8 @@ public class NewsCrawlProducer {
     private final KafkaTemplate<String, NewsCrawlEvent> kafkaTemplate;
     private static final String TOPIC = "crawl-news";
 
-    public CompletableFuture<SendResult<String, NewsCrawlEvent>> requestCrawlAndAwaitAck(String category) {
-        NewsCrawlEvent event = new NewsCrawlEvent(category, System.currentTimeMillis());
+    public CompletableFuture<SendResult<String, NewsCrawlEvent>> requestCrawlAndAwaitAck(String jobId, String category) {
+        NewsCrawlEvent event = new NewsCrawlEvent(jobId, category, System.currentTimeMillis());
         return kafkaTemplate.send(TOPIC, category, event);
     }
 }

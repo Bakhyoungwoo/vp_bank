@@ -35,7 +35,10 @@ out/
 
 ### VS Code ###
 .vscode/
+.gradle-local/
 
 # Keep only the repository root README in Git; ignore other Markdown files.
 *.md
 !README.md
+!docs/
+!docs/*.md

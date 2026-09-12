@@ -7,12 +7,11 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public class NewsCrawlEvent {
+public class CrawlJob {
     private String jobId;
     private String category;
-    private long timestamp;
-
-    public NewsCrawlEvent(String category, long timestamp) {
-        this(null, category, timestamp);
-    }
+    private String status;
+    private String message;
+    private long createdAt;
+    private long updatedAt;
 }
