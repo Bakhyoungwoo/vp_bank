@@ -5,10 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriUtils;
+import org.springframework.web.util.UriComponentsBuilder;
 import com.example.vap_back.Entity.News;
 import com.example.vap_back.service.NewsService;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -24,9 +25,14 @@ public class StockService {
     private String aiBaseUrl;
 
     public Map<String, Object> search(String query, int limit) {
-        String url = aiBaseUrl + "/stocks/search?query="
-                + UriUtils.encodeQueryParam(query, StandardCharsets.UTF_8)
-                + "&limit=" + limit;
+        // queryParam()이 원문(디코딩된) 값을 받아 encode()에서 한 번만 퍼센트 인코딩하도록 하고,
+        // 결과를 String이 아닌 URI로 넘겨 RestTemplate이 다시 인코딩(이중 인코딩)하지 않게 한다.
+        URI url = UriComponentsBuilder.fromHttpUrl(aiBaseUrl + "/stocks/search")
+                .queryParam("query", query)
+                .queryParam("limit", limit)
+                .build()
+                .encode(StandardCharsets.UTF_8)
+                .toUri();
         try {
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
             return response != null ? response : Map.of("query", query, "items", List.of());
@@ -37,9 +43,12 @@ public class StockService {
     }
 
     public Map<String, Object> detail(String symbol, int days) {
-        String url = aiBaseUrl + "/stocks/"
-                + UriUtils.encodePathSegment(symbol, StandardCharsets.UTF_8)
-                + "?days=" + days;
+        URI url = UriComponentsBuilder.fromHttpUrl(aiBaseUrl + "/stocks/{symbol}")
+                .queryParam("days", days)
+                .build()
+                .expand(symbol)
+                .encode(StandardCharsets.UTF_8)
+                .toUri();
         try {
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
             return response != null ? response : Map.of("symbol", symbol, "history", List.of());
@@ -50,9 +59,12 @@ public class StockService {
     }
 
     public Map<String, Object> financials(String symbol, int limit) {
-        String url = aiBaseUrl + "/stocks/"
-                + UriUtils.encodePathSegment(symbol, StandardCharsets.UTF_8)
-                + "/financials?limit=" + limit;
+        URI url = UriComponentsBuilder.fromHttpUrl(aiBaseUrl + "/stocks/{symbol}/financials")
+                .queryParam("limit", limit)
+                .build()
+                .expand(symbol)
+                .encode(StandardCharsets.UTF_8)
+                .toUri();
         try {
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
             return response != null ? response : Map.of("symbol", symbol, "items", List.of(), "available", false);
