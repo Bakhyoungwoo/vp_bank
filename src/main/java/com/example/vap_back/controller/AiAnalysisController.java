@@ -9,8 +9,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriUtils;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
@@ -32,9 +33,12 @@ public class AiAnalysisController {
         if (symbol.isBlank() || days < 5 || days > 3650) {
             return ResponseEntity.badRequest().body(Map.of("message", "Invalid symbol or days"));
         }
-        String url = aiBaseUrl + "/ai/stocks/" // Python analysis endpoint.
-                + UriUtils.encodePathSegment(symbol, StandardCharsets.UTF_8)
-                + "/analysis?days=" + days;
+        URI url = UriComponentsBuilder.fromHttpUrl(aiBaseUrl + "/ai/stocks/{symbol}/analysis") // Python analysis endpoint.
+                .queryParam("days", days)
+                .build()
+                .expand(symbol)
+                .encode(StandardCharsets.UTF_8)
+                .toUri();
         try {
             Map<String, Object> result = restTemplate.postForObject(url, null, Map.class);
             return ResponseEntity.ok(result != null ? result : Map.of(
