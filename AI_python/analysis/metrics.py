@@ -114,6 +114,24 @@ def normalize_financials(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+GROWTH_FIELD_LABELS = {
+    "revenue": "매출",
+    "operatingIncome": "영업이익",
+    "netIncome": "순이익",
+    "eps": "EPS",
+}
+
+
+def _format_growth_evidence(growth: dict[str, float | None]) -> str:
+    """Render growth percentages as a readable Korean summary instead of a raw dict."""
+    parts = [
+        f"{GROWTH_FIELD_LABELS.get(field, field)} {value:+.2f}%"
+        for field, value in growth.items()
+        if value is not None
+    ]
+    return f"재무 성장률 {', '.join(parts)}" if parts else "재무 성장률 데이터 없음"
+
+
 def score_financials(financials: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Create growth/profitability scores only when source values are available."""
     if not financials.get("available"):
@@ -126,7 +144,7 @@ def score_financials(financials: dict[str, Any]) -> dict[str, dict[str, Any]]:
     margin = financials.get("latest", {}).get("operatingMargin")
     profitability_score = round(max(0, min(100, 50 + margin * 100))) if margin is not None else None
     return {
-        "growth": {"score": growth_score, "evidence": [f"재무 성장률 {growth}"]},
+        "growth": {"score": growth_score, "evidence": [_format_growth_evidence(growth)]},
         "profitability": {
             "score": profitability_score,
             "evidence": [f"최근 영업이익률 {margin:.2%}"] if margin is not None else ["영업이익률 없음"],
