@@ -54,6 +54,7 @@ def crawl_category(name, code, max_pages=1):
     for page in range(1, max_pages + 1):
         url = f"{BASE_URL}/{code}?page={page}"
         res = requests.get(url, headers=HEADERS)
+        res.encoding = "utf-8"
         soup = BeautifulSoup(res.text, "html.parser")
 
         links = soup.select("a.sa_text_title")
@@ -82,6 +83,7 @@ def crawl_category(name, code, max_pages=1):
 def crawl_article(url):
     try:
         res = requests.get(url, headers=HEADERS)
+        res.encoding = "utf-8"
         soup = BeautifulSoup(res.text, "html.parser")
 
         title_tag = soup.select_one("h2#title_area")
