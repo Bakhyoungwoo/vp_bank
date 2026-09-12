@@ -3,6 +3,7 @@ package com.example.vap_back.kafka;
 import com.example.vap_back.dto.NewsCrawlEvent;
 import com.example.vap_back.service.CrawlLockService;
 import com.example.vap_back.service.NewsCacheService;
+import com.example.vap_back.service.CrawlJobService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -21,6 +22,7 @@ public class NewsCrawlConsumer {
     private final NewsCacheService newsCacheService;
     private final CrawlLockService crawlLockService;
     private final RestTemplate restTemplate;
+    private final CrawlJobService crawlJobService;
 
     @Value("${crawler.base-url:http://localhost:8000}")
     private String crawlerBaseUrl;
@@ -32,12 +34,15 @@ public class NewsCrawlConsumer {
     )
     public void consume(NewsCrawlEvent event) {
         String category = event.getCategory();
+        String jobId = event.getJobId();
 
         if (crawlLockService.isLocked(category)) {
+            if (jobId != null) crawlJobService.markFailed(jobId, "A crawl is already running for this category");
             return;
         }
 
         try {
+            if (jobId != null) crawlJobService.markProcessing(jobId);
             crawlLockService.lock(category);
 
             String crawlUrl = crawlerBaseUrl + "/crawl?category=" + category;
@@ -47,9 +52,11 @@ public class NewsCrawlConsumer {
             List<Map<String, Object>> articles = List.of();
 
             newsCacheService.crawlAndSave(category, articles);
+            if (jobId != null) crawlJobService.markCompleted(jobId);
             log.info("뉴스 갱신 완료 - category={}", category);
 
         } catch (Exception e) {
+            if (jobId != null) crawlJobService.markFailed(jobId, e.getMessage());
             log.error("뉴스 갱신 실패 - category={}, DLQ 재시도 예정", category, e);
             throw e;  // DefaultErrorHandler가 3회 재시도 후 crawl-news-dlq로 전송
         } finally {
