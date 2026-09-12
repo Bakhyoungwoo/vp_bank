@@ -29,7 +29,7 @@ class NewsCachePerformanceTest {
     private static final String CATEGORY = "it";
     private static final String REDIS_KEY = "benchmark:trend:it:articles";
     private static final int LIMIT = 10;
-    private static final int[] CONCURRENCIES = {10, 50, 100};
+    private static final int[] CONCURRENCIES = {100};
     private static final int REQUESTS_PER_WORKER = envInt("PERF_REQUESTS_PER_WORKER", 100);
     private static final int WARMUP_REQUESTS = envInt("PERF_WARMUP_REQUESTS", 20);
     private static StringRedisTemplate redis;
@@ -52,7 +52,7 @@ class NewsCachePerformanceTest {
 
     @Test
     void compareConcurrentMySqlAndRedis() throws Exception {
-        System.out.printf("%n[NEWS CONCURRENT BENCHMARK] workers=10/50/100, requestsPerWorker=%d, warmup=%d%n", REQUESTS_PER_WORKER, WARMUP_REQUESTS);
+        System.out.printf("%n[NEWS CONCURRENT BENCHMARK] workers=100, requestsPerWorker=%d, warmup=%d%n", REQUESTS_PER_WORKER, WARMUP_REQUESTS);
         System.out.println("mode                  concurrency  requests  p95(ms)  dbQueries");
         for (int concurrency : CONCURRENCIES) {
             runWarmup(concurrency, NewsCachePerformanceTest::queryMySql);
