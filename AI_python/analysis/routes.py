@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query
 
 from analysis.metrics import normalize_financials, price_metrics, score_financials, score_momentum
-from market.openbb_provider import get_stock_detail
+from market.service import get_stock_detail
 
 router = APIRouter(prefix="/ai", tags=["ai-analysis"])
 
@@ -15,6 +15,8 @@ def analyze_stock(symbol: str, days: int = Query(default=30, ge=5, le=3650)):
         detail = get_stock_detail(symbol, days)
     except ImportError as exc:
         raise HTTPException(status_code=503, detail="OpenBB unavailable") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Stock data unavailable") from exc
 
