@@ -22,19 +22,26 @@ LLM        = 자연어 해석·설명·리포트 생성
 - OpenBB 기반 시장 개요 조회 API 추가
 - OpenBB 기반 기간별 차트 데이터 API 추가
 - 기존 Spring Backend가 AI 서비스의 시장 API를 중계하도록 구성
-- 프론트의 시장 개요 조회 연결
-- 프론트의 시장 차트 조회 연결
+- 프론트의 시장 개요 조회 연결 (오늘의 증시 카드만 연결됨. 차트·검색·상세 화면은 미연결 — 아래 제한사항 참고)
 - 시장 관련 뉴스 영역의 기존 연결 구조 확인
 - Docker 환경에서 AI 서비스가 실행될 수 있도록 Java 런타임 및 OpenBB 빌드 단계 구성
+- `MarketDataProvider` 인터페이스 정의 (`AI_python/market/providers/base.py`)
+- OpenBB/yfinance 어댑터 정리 (`AI_python/market/providers/yfinance_provider.py`)
+- 한국투자증권(KIS) Open API 어댑터 초안 작성 — 시세/일봉 조회 (`AI_python/market/providers/korea_investment_provider.py`). `KIS_APP_KEY`/`KIS_APP_SECRET` 미설정 시 자동으로 비활성화되어 yfinance로 폴백하며, **실제 계좌로 검증된 적은 없음**
+- 종목/시장 코드 표준화 (`AI_python/market/symbols.py`) — 코드로부터 시장(KOSPI/KOSDAQ/해외), 통화, 표준 심볼을 판별
+- 응답에 `provider`, `asOf`, `delayed` 표준 필드 포함 (`AI_python/market/service.py`)
+- Provider 장애 시 자동 폴백 (KIS 실패 → yfinance) 및 Redis 기반 캐시·요청 제한 적용 (Redis 장애 시 fail-open)
 
 ### 현재 제한사항
 
-- 현재 시장 데이터 Provider는 `yfinance` 기반 임시 연결이다.
+- 현재 시장 데이터 Provider는 `yfinance` 기반 임시 연결이 기본값이다. KIS 어댑터는 코드만 준비되어 있고 자격 증명과 실계좌 검증이 필요하다.
 - 한국 시장의 실시간·공식 데이터 제공을 위해서는 한국투자증권 Open API 또는 KRX 계열 API 연동이 필요하다.
 - yfinance에서 KOSDAQ, KOSPI200 등 일부 한국 지수는 조회가 불안정할 수 있다.
+- 6자리 국내 종목 코드만으로는 KOSPI/KOSDAQ 구분이 불가능해 `marketUncertain` 플래그로 표시한다 (`AI_python/market/symbols.py`).
+- KIS 어댑터는 시세·일봉 조회만 구현되어 있고, 재무·뉴스·검색은 아직 yfinance 경로만 사용한다.
 - FinRobot은 아직 프로젝트에 직접 연결되지 않았다.
-- AI 종목 분석, 종목 비교, 뉴스 영향 분석, 급등락 원인 분석, Tool Calling 챗봇은 후속 개발 대상이다.
-- 프론트는 현재 별도 수정 중인 상태이므로 이 문서 작업에서 프론트 파일을 커밋하지 않는다.
+- AI 종목 분석은 결정론적 수치 초안까지만 구현되어 있고(`llmNarrative`는 아직 `null`), 종목 비교, 뉴스 영향 분석, 급등락 원인 분석, 개인화 브리핑, Tool Calling 챗봇은 후속 개발 대상이다.
+- 프론트는 시장 개요 카드만 연결되어 있고 차트·종목 검색·상세·AI 분석 화면은 아직 연결되지 않았다.
 
 ## 3. 목표 아키텍처
 
