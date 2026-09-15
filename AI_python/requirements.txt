@@ -10,3 +10,5 @@ konlpy
 apscheduler
 openbb
 openbb-yfinance
+openai
+python-dotenv
