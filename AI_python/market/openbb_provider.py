@@ -187,6 +187,20 @@ def get_stock_financials(symbol: str, limit: int = 5) -> dict[str, Any]:
     }
 
 
+def get_stock_balance(symbol: str, limit: int = 4) -> dict[str, Any]:
+    symbol = symbol.strip().upper()
+    rows = _records(_obb().equity.fundamental.balance(
+        symbol=symbol, limit=limit, provider="yfinance"
+    ))
+    return {
+        "symbol": symbol,
+        "provider": "openbb/yfinance",
+        "available": bool(rows),
+        "asOf": date.today().isoformat(),
+        "items": rows,
+    }
+
+
 def get_stock_news(symbol: str, limit: int = 10) -> dict[str, Any]:
     symbol = symbol.strip().upper()
     url = f"https://query2.finance.yahoo.com/v1/finance/search?q={quote(symbol)}&quotesCount=0&newsCount={limit}"

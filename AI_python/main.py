@@ -7,6 +7,11 @@ import redis
 from datetime import datetime
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from dotenv import load_dotenv
+
+# uvicorn을 어느 작업 디렉터리에서 실행하든 OPENAI_API_KEY 값을
+# 읽을 수 있도록 AI_python/.env 경로를 명시해서 로드한다.
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 from crawler.naver_crawler import crawl_category, CATEGORIES
 from market.routes import router as market_router, stocks_router

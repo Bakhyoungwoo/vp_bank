@@ -22,19 +22,28 @@ LLM        = 자연어 해석·설명·리포트 생성
 - OpenBB 기반 시장 개요 조회 API 추가
 - OpenBB 기반 기간별 차트 데이터 API 추가
 - 기존 Spring Backend가 AI 서비스의 시장 API를 중계하도록 구성
-- 프론트의 시장 개요 조회 연결
-- 프론트의 시장 차트 조회 연결
+- 프론트(`vp_front`, 별도 저장소)에서 시장 개요·종목 검색·종목 상세(차트/재무/뉴스)·종목 비교 연결 완료. 뉴스 영향 분석, 개인화 브리핑, Tool Calling 챗봇 화면은 아직 목업(mock) 상태 — 아래 제한사항 참고
 - 시장 관련 뉴스 영역의 기존 연결 구조 확인
 - Docker 환경에서 AI 서비스가 실행될 수 있도록 Java 런타임 및 OpenBB 빌드 단계 구성
+- `MarketDataProvider` 인터페이스 정의 (`AI_python/market/providers/base.py`)
+- OpenBB/yfinance 어댑터 정리 (`AI_python/market/providers/yfinance_provider.py`)
+- 종목/시장 코드 표준화 (`AI_python/market/symbols.py`) — 코드로부터 시장(KOSPI/KOSDAQ/해외), 통화, 표준 심볼을 판별
+- 응답에 `provider`, `asOf`, `delayed` 표준 필드 포함 (`AI_python/market/service.py`)
+- Redis 기반 캐시·요청 제한 적용 (Redis 장애 시 fail-open)
+- AI 종목 분석 서술(`llmNarrative`) 생성 — OpenAI Chat Completions 연동 (`AI_python/analysis/llm.py`). 프롬프트에는 이미 계산된 점수·근거만 전달하고 원본 가격·재무 데이터는 전달하지 않는다. `OPENAI_API_KEY` 미설정 시 또는 호출 실패 시 예외 없이 `llmNarrative: null`로 폴백한다. `AI_python/.env`(gitignore 대상, `.env.example` 참고)로 키를 관리한다
+- AI 종목 비교 API 추가 (`POST /ai/stocks/compare?symbols=A,B&days=90`, `AI_python/analysis/compare.py`) — 2~5개 종목의 매출 성장률·영업이익률·PER·PBR·ROE·부채비율·기간 수익률·변동성을 동일 기준으로 계산하고, 동일 업종 여부를 판정하며, 위 수치만으로 LLM 비교 서술을 생성한다. PER/PBR/ROE/부채비율은 시가총액·순이익·자기자본·부채 총계가 모두 확인될 때만 계산하고, 하나라도 없으면 억지로 계산하지 않는다. `vp_front`의 `stock-compare.html`이 실제 이 API에 연결되어 있다
 
 ### 현재 제한사항
 
-- 현재 시장 데이터 Provider는 `yfinance` 기반 임시 연결이다.
-- 한국 시장의 실시간·공식 데이터 제공을 위해서는 한국투자증권 Open API 또는 KRX 계열 API 연동이 필요하다.
+- 시장 데이터 Provider는 `yfinance` 하나만 사용하기로 결정했다. 한국투자증권(KIS) Open API 어댑터는 실계좌 없이 검증이 어려워 제거했고, 재도입 계획은 없다.
+- 위 결정에 따라 한국 시장도 yfinance 데이터를 그대로 사용하며, 실시간·공식 데이터가 아닌 지연 데이터임을 `delayed` 플래그로 표시한다.
 - yfinance에서 KOSDAQ, KOSPI200 등 일부 한국 지수는 조회가 불안정할 수 있다.
-- FinRobot은 아직 프로젝트에 직접 연결되지 않았다.
-- AI 종목 분석, 종목 비교, 뉴스 영향 분석, 급등락 원인 분석, Tool Calling 챗봇은 후속 개발 대상이다.
-- 프론트는 현재 별도 수정 중인 상태이므로 이 문서 작업에서 프론트 파일을 커밋하지 않는다.
+- 6자리 국내 종목 코드만으로는 KOSPI/KOSDAQ 구분이 불가능해 `marketUncertain` 플래그로 표시한다 (`AI_python/market/symbols.py`).
+- FinRobot 자체(에이전트/워크플로우 프레임워크)는 아직 프로젝트에 직접 연결되지 않았다. AI 종목 분석의 서술 생성은 우선 OpenAI Chat Completions로 직접 연동했다.
+- AI 종목 분석과 종목 비교는 결정론적 수치 + LLM 서술까지 구현되어 있고, 뉴스 영향 분석, 급등락 원인 분석, 개인화 브리핑, Tool Calling 챗봇은 후속 개발 대상이다 (`vp_front`에는 화면 골격과 목업만 있음).
+- 종목 비교의 PER/PBR/ROE/부채비율은 yfinance 대차대조표 필드(`common_stock_equity`를 자기자본으로 사용)에 의존한다. 일부 종목(자사주 매입이 많은 기업 등)은 자기자본이 매우 작아 ROE·부채비율이 비정상적으로 크게 계산될 수 있다 — 계산식 자체는 정확하지만 해석 시 주의가 필요하다.
+- 로컬 Windows 개발 환경에서 `openai` SDK의 의존 패키지 `jiter`가 DLL 로드 오류를 낼 수 있다(Visual C++ 런타임 미설치로 추정). 이 경우 `llmNarrative`는 예외 없이 `null`로 폴백하며, Docker(Linux) 배포 환경에서는 재현되지 않을 것으로 예상된다 — 로컬에서 실제 서술까지 확인하려면 Visual C++ Redistributable(x64) 설치가 필요하다.
+- 프론트(`vp_front`)의 종목 비교/뉴스 영향/시장 브리핑/챗봇 화면은 목업 데이터로만 동작하며, 해당 백엔드 API는 아직 없다.
 
 ## 3. 목표 아키텍처
 
@@ -46,8 +55,7 @@ LLM        = 자연어 해석·설명·리포트 생성
     │
     ├── 시장·종목 일반 조회 ──► [Stock Service] ──► [OpenBB Adapter]
     │                                      │
-    │                                      ├── 한국 API
-    │                                      ├── 해외 Provider
+    │                                      ├── yfinance Provider (국내·해외 공통)
     │                                      └── 뉴스 Provider
     │
     └── AI 요청 ──────────────► [AI Service]
@@ -76,8 +84,6 @@ LLM        = 자연어 해석·설명·리포트 생성
 
 - `MarketDataProvider` 인터페이스 정의
 - OpenBB Provider를 사용하는 기본 Adapter 정리
-- 한국 Provider Adapter 추가
-- 한국투자증권 조회 API 또는 KRX 데이터 API 연동 검토 및 선정
 - 조회 전용 API만 사용하고 주문 API는 구현하지 않음
 - 종목 코드·시장 코드·통화·거래시간 표준화
 - 데이터 출처, 조회 시각, 지연 여부를 응답에 포함
@@ -310,7 +316,7 @@ Python AI 서비스는 다음 영역으로 나눈다.
 
 ```text
 AI_python
-├── market             # OpenBB 및 한국 Provider Adapter
+├── market             # OpenBB/yfinance Provider Adapter
 ├── stock              # 종목·재무·기업정보 조회
 ├── news               # 뉴스 조회·정규화
 ├── agents             # FinRobot 연계 Agent
@@ -342,7 +348,7 @@ AI_python
 ### 통합 테스트
 
 - Frontend → Spring Backend → AI Service → OpenBB 흐름 검증
-- 한국 Provider와 해외 Provider 응답 비교
+- 국내·해외 심볼에 대한 yfinance 응답 형식 일관성 검증
 - 뉴스 조회 후 관련 기업 분석 흐름 검증
 - Tool Calling이 허용된 도구만 호출하는지 검증
 
@@ -357,7 +363,7 @@ AI_python
 ## 8. 권장 개발 순서
 
 ```text
-1. 한국 조회 Provider 확정
+1. (완료 — yfinance 단일 Provider로 확정, KIS 제외)
 2. 공통 금융 데이터 스키마 확정
 3. 시장·종목·재무·뉴스 API 완성
 4. 프론트 시장·종목 상세 연결
@@ -389,7 +395,7 @@ AI_python
 
 - 시장 및 종목 데이터가 동일한 공통 스키마로 제공된다.
 - 프론트가 기존 백엔드를 통해 시장·종목 데이터를 조회한다.
-- 한국 시장 데이터는 공식 Provider 연결 상태와 지연 여부를 표시한다.
+- 한국 시장 데이터는 yfinance 기반 지연 데이터임을 `delayed` 플래그로 표시한다.
 - AI 분석 결과의 주요 수치가 원본 데이터와 일치한다.
 - 모든 AI 분석 결과가 근거 데이터와 기준 시각을 가진다.
 - 데이터가 없거나 API가 실패할 때 추측 대신 명확한 상태를 반환한다.

@@ -50,4 +50,31 @@ public class AiAnalysisController {
                     "message", "AI analysis service unavailable"));
         }
     }
+
+    /** Proxies a stock comparison request (2~5 symbols) to the Python service. */
+    @PostMapping("/stocks/compare")
+    public ResponseEntity<Map<String, Object>> compareStocks(
+            @RequestParam String symbols,
+            @RequestParam(defaultValue = "90") int days
+    ) {
+        if (symbols.isBlank() || days < 5 || days > 3650) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Invalid symbols or days"));
+        }
+        URI url = UriComponentsBuilder.fromHttpUrl(aiBaseUrl + "/ai/stocks/compare")
+                .queryParam("symbols", symbols)
+                .queryParam("days", days)
+                .build()
+                .encode(StandardCharsets.UTF_8)
+                .toUri();
+        try {
+            return ResponseEntity.ok(restTemplate.postForObject(url, null, Map.class));
+        } catch (org.springframework.web.client.HttpClientErrorException.BadRequest exception) {
+            return ResponseEntity.badRequest().body(Map.of("message", "종목은 2~5개를 입력해야 합니다."));
+        } catch (Exception exception) {
+            return ResponseEntity.status(502).body(Map.of(
+                    "symbols", symbols,
+                    "status", "unavailable",
+                    "message", "AI comparison service unavailable"));
+        }
+    }
 }
