@@ -45,7 +45,7 @@ public class StockController {
     }
 
     @GetMapping("/{symbol}/financials")
-    @Operation(summary = "醫낅ぉ ?щТ 議고쉶")
+    @Operation(summary = "종목 재무 조회")
     public ResponseEntity<Map<String, Object>> financials(
             @PathVariable String symbol,
             @RequestParam(defaultValue = "5") int limit
@@ -57,7 +57,7 @@ public class StockController {
     }
 
     @GetMapping("/{symbol}/news")
-    @Operation(summary = "醫낅ぉ 愿???댁뒪 議고쉶")
+    @Operation(summary = "종목 관련 뉴스 조회")
     public ResponseEntity<Map<String, Object>> news(
             @PathVariable String symbol,
             @RequestParam(defaultValue = "10") int limit
