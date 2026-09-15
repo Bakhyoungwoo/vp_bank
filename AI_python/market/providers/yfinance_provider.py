@@ -28,5 +28,8 @@ class YFinanceProvider:
     def get_financials(self, symbol: str, limit: int = 5) -> dict[str, Any]:
         return openbb_provider.get_stock_financials(symbol, limit)
 
+    def get_balance(self, symbol: str, limit: int = 4) -> dict[str, Any]:
+        return openbb_provider.get_stock_balance(symbol, limit)
+
     def get_news(self, symbol: str, limit: int = 10) -> dict[str, Any]:
         return openbb_provider.get_stock_news(symbol, limit)
