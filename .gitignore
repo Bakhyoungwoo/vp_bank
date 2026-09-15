@@ -42,3 +42,9 @@ out/
 !README.md
 !docs/
 !docs/*.md
+
+# Secrets (API keys, credentials) — never commit real values.
+.env
+.env.*
+!.env.example
+!**/.env.example
