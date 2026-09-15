@@ -71,6 +71,9 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    env_file:
+      - path: ./AI_python/.env
+        required: false
     environment:
       REDIS_HOST: redis
       SPRING_HOST: backend
