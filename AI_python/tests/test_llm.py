@@ -62,5 +62,41 @@ class GenerateNarrativeTest(unittest.TestCase):
         self.assertIsNone(result)
 
 
+class GenerateComparisonNarrativeTest(unittest.TestCase):
+    SAMPLE_COMPARISON = {
+        "symbols": ["AAPL", "MSFT"],
+        "asOf": "2026-09-15T00:00:00Z",
+        "sameSector": True,
+        "items": [
+            {"symbol": "AAPL", "name": "Apple", "sector": "Technology", "revenueGrowthPercent": 6.4,
+             "operatingMarginPercent": 32.0, "per": 10.0, "pbr": 2.0, "roe": 20.0, "debtRatio": 40.0,
+             "periodReturnPercent": 5.0, "volatilityPercent": 1.5},
+            {"symbol": "MSFT", "name": "Microsoft", "sector": "Technology", "revenueGrowthPercent": 12.0,
+             "operatingMarginPercent": 40.0, "per": 15.0, "pbr": 3.0, "roe": 25.0, "debtRatio": 30.0,
+             "periodReturnPercent": 8.0, "volatilityPercent": 1.2},
+        ],
+    }
+
+    def test_returns_none_when_not_configured(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertIsNone(llm.generate_comparison_narrative(self.SAMPLE_COMPARISON))
+
+    def test_returns_narrative_text_on_success(self):
+        fake_response = MagicMock()
+        fake_response.choices[0].message.content = "  비교 요약입니다.  "
+        fake_client = MagicMock()
+        fake_client.chat.completions.create.return_value = fake_response
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test"}), \
+                patch.object(llm, "_get_client", return_value=fake_client):
+            result = llm.generate_comparison_narrative(self.SAMPLE_COMPARISON)
+        self.assertEqual(result, "비교 요약입니다.")
+
+    def test_prompt_covers_every_symbol_with_only_computed_metrics(self):
+        prompt = llm._build_comparison_prompt(self.SAMPLE_COMPARISON)
+        self.assertIn("AAPL", prompt)
+        self.assertIn("MSFT", prompt)
+        self.assertIn("PER 10.0", prompt)
+
+
 if __name__ == "__main__":
     unittest.main()
