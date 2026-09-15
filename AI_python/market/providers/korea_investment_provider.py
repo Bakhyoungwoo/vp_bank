@@ -149,5 +149,8 @@ class KoreaInvestmentProvider:
     def get_financials(self, symbol: str, limit: int = 5) -> dict[str, Any]:
         raise NotImplementedError
 
+    def get_balance(self, symbol: str, limit: int = 4) -> dict[str, Any]:
+        raise NotImplementedError
+
     def get_news(self, symbol: str, limit: int = 10) -> dict[str, Any]:
         raise NotImplementedError
