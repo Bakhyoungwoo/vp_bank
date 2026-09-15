@@ -13,6 +13,14 @@ SYSTEM_PROMPT = (
     "데이터의 한계를 함께 언급하세요."
 )
 
+COMPARISON_SYSTEM_PROMPT = (
+    "당신은 금융 데이터 분석 보조원입니다. 아래 종목별 지표만 근거로 "
+    "한국어로 4~6문장의 비교 설명을 작성하세요. 어느 종목이 어떤 지표에서 "
+    "우위인지 사실 기반으로 설명하되, 투자 추천이나 매수/매도 의견은 제시하지 마세요. "
+    "제공되지 않은 수치나 사실을 새로 만들어내지 마세요. 데이터가 없는 지표는 "
+    "비교할 수 없다고 명시하세요."
+)
+
 
 def is_configured() -> bool:
     return bool(os.getenv("OPENAI_API_KEY"))
@@ -25,6 +33,30 @@ def _get_client():
 
         _client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     return _client
+
+
+def _complete(system_prompt: str, user_prompt: str, max_tokens: int, error_label: str) -> str | None:
+    """공통 Chat Completions 호출. 실패해도 예외를 던지지 않고 None을 반환해
+    호출부가 결정론적 수치만으로 응답을 내려줄 수 있게 한다."""
+    if not is_configured():
+        return None
+    try:
+        client = _get_client()
+        model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.3,
+            max_tokens=max_tokens,
+        )
+        content = response.choices[0].message.content
+        return content.strip() if content else None
+    except Exception as exc:
+        print(f"[LLM ERROR] {error_label} failed:", exc)
+        return None
 
 
 def _build_prompt(analysis: dict[str, Any]) -> str:
@@ -48,28 +80,43 @@ def _build_prompt(analysis: dict[str, Any]) -> str:
 
 
 def generate_narrative(analysis: dict[str, Any]) -> str | None:
-    """설정된 LLM에게 이미 계산된 분석 초안의 서술을 맡긴다.
+    """설정된 LLM에게 이미 계산된 분석 초안의 서술을 맡긴다."""
+    return _complete(SYSTEM_PROMPT, _build_prompt(analysis), max_tokens=400, error_label="narrative generation")
 
-    OPENAI_API_KEY가 없거나 호출이 실패해도 예외를 던지지 않고 None을
-    반환한다. 호출부는 이 경우 결정론적 수치만으로 응답을 내려주면 되고,
-    엔드포인트 자체가 깨지지는 않는다.
-    """
-    if not is_configured():
-        return None
-    try:
-        client = _get_client()
-        model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": _build_prompt(analysis)},
-            ],
-            temperature=0.3,
-            max_tokens=400,
-        )
-        content = response.choices[0].message.content
-        return content.strip() if content else None
-    except Exception as exc:
-        print("[LLM ERROR] narrative generation failed:", exc)
-        return None
+
+def _format_metric(value: Any, label: str, unit: str = "") -> str:
+    return f"{label} {value}{unit}" if value is not None else f"{label} 데이터없음"
+
+
+def _build_comparison_prompt(comparison: dict[str, Any]) -> str:
+    """이미 계산된 비교 지표만 서술용 프롬프트로 옮긴다. 원본 시계열이나
+    재무제표 원문은 넘기지 않는다."""
+    lines = [
+        f"비교 종목: {', '.join(comparison.get('symbols') or [])}",
+        f"기준 시각: {comparison.get('asOf')}",
+        f"동일 업종 여부: {'예' if comparison.get('sameSector') else '아니오'}",
+    ]
+    for item in comparison.get("items", []):
+        parts = [
+            _format_metric(item.get("sector"), "업종"),
+            _format_metric(item.get("revenueGrowthPercent"), "매출성장률", "%"),
+            _format_metric(item.get("operatingMarginPercent"), "영업이익률", "%"),
+            _format_metric(item.get("per"), "PER"),
+            _format_metric(item.get("pbr"), "PBR"),
+            _format_metric(item.get("roe"), "ROE", "%"),
+            _format_metric(item.get("debtRatio"), "부채비율", "%"),
+            _format_metric(item.get("periodReturnPercent"), "최근 기간 수익률", "%"),
+            _format_metric(item.get("volatilityPercent"), "변동성", "%"),
+        ]
+        lines.append(f"- {item.get('symbol')} ({item.get('name')}): " + ", ".join(parts))
+    return "\n".join(lines)
+
+
+def generate_comparison_narrative(comparison: dict[str, Any]) -> str | None:
+    """설정된 LLM에게 이미 계산된 종목 비교표의 차이 설명을 맡긴다."""
+    return _complete(
+        COMPARISON_SYSTEM_PROMPT,
+        _build_comparison_prompt(comparison),
+        max_tokens=500,
+        error_label="comparison narrative generation",
+    )
