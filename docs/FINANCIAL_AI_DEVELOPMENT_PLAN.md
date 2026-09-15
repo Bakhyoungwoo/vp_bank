@@ -22,7 +22,7 @@ LLM        = 자연어 해석·설명·리포트 생성
 - OpenBB 기반 시장 개요 조회 API 추가
 - OpenBB 기반 기간별 차트 데이터 API 추가
 - 기존 Spring Backend가 AI 서비스의 시장 API를 중계하도록 구성
-- 프론트의 시장 개요 조회 연결 (오늘의 증시 카드만 연결됨. 차트·검색·상세 화면은 미연결 — 아래 제한사항 참고)
+- 프론트(`vp_front`, 별도 저장소)에서 시장 개요·종목 검색·종목 상세(차트/재무/뉴스) 연결 완료. 종목 비교, 뉴스 영향 분석, 개인화 브리핑, Tool Calling 챗봇 화면은 아직 목업(mock) 상태 — 아래 제한사항 참고
 - 시장 관련 뉴스 영역의 기존 연결 구조 확인
 - Docker 환경에서 AI 서비스가 실행될 수 있도록 Java 런타임 및 OpenBB 빌드 단계 구성
 - `MarketDataProvider` 인터페이스 정의 (`AI_python/market/providers/base.py`)
@@ -31,6 +31,7 @@ LLM        = 자연어 해석·설명·리포트 생성
 - 종목/시장 코드 표준화 (`AI_python/market/symbols.py`) — 코드로부터 시장(KOSPI/KOSDAQ/해외), 통화, 표준 심볼을 판별
 - 응답에 `provider`, `asOf`, `delayed` 표준 필드 포함 (`AI_python/market/service.py`)
 - Provider 장애 시 자동 폴백 (KIS 실패 → yfinance) 및 Redis 기반 캐시·요청 제한 적용 (Redis 장애 시 fail-open)
+- AI 종목 분석 서술(`llmNarrative`) 생성 — OpenAI Chat Completions 연동 (`AI_python/analysis/llm.py`). 프롬프트에는 이미 계산된 점수·근거만 전달하고 원본 가격·재무 데이터는 전달하지 않는다. `OPENAI_API_KEY` 미설정 시 또는 호출 실패 시 예외 없이 `llmNarrative: null`로 폴백한다. `AI_python/.env`(gitignore 대상, `.env.example` 참고)로 키를 관리한다
 
 ### 현재 제한사항
 
@@ -39,9 +40,10 @@ LLM        = 자연어 해석·설명·리포트 생성
 - yfinance에서 KOSDAQ, KOSPI200 등 일부 한국 지수는 조회가 불안정할 수 있다.
 - 6자리 국내 종목 코드만으로는 KOSPI/KOSDAQ 구분이 불가능해 `marketUncertain` 플래그로 표시한다 (`AI_python/market/symbols.py`).
 - KIS 어댑터는 시세·일봉 조회만 구현되어 있고, 재무·뉴스·검색은 아직 yfinance 경로만 사용한다.
-- FinRobot은 아직 프로젝트에 직접 연결되지 않았다.
-- AI 종목 분석은 결정론적 수치 초안까지만 구현되어 있고(`llmNarrative`는 아직 `null`), 종목 비교, 뉴스 영향 분석, 급등락 원인 분석, 개인화 브리핑, Tool Calling 챗봇은 후속 개발 대상이다.
-- 프론트는 시장 개요 카드만 연결되어 있고 차트·종목 검색·상세·AI 분석 화면은 아직 연결되지 않았다.
+- FinRobot 자체(에이전트/워크플로우 프레임워크)는 아직 프로젝트에 직접 연결되지 않았다. AI 종목 분석의 서술 생성은 우선 OpenAI Chat Completions로 직접 연동했다.
+- AI 종목 분석은 결정론적 수치 초안 + LLM 서술까지 구현되어 있고, 종목 비교, 뉴스 영향 분석, 급등락 원인 분석, 개인화 브리핑, Tool Calling 챗봇은 후속 개발 대상이다 (`vp_front`에는 화면 골격과 목업만 있음).
+- 로컬 Windows 개발 환경에서 `openai` SDK의 의존 패키지 `jiter`가 DLL 로드 오류를 낼 수 있다(Visual C++ 런타임 미설치로 추정). 이 경우 `llmNarrative`는 예외 없이 `null`로 폴백하며, Docker(Linux) 배포 환경에서는 재현되지 않을 것으로 예상된다 — 로컬에서 실제 서술까지 확인하려면 Visual C++ Redistributable(x64) 설치가 필요하다.
+- 프론트(`vp_front`)의 종목 비교/뉴스 영향/시장 브리핑/챗봇 화면은 목업 데이터로만 동작하며, 해당 백엔드 API는 아직 없다.
 
 ## 3. 목표 아키텍처
 
