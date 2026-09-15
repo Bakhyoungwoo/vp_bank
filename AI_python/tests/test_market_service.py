@@ -4,29 +4,9 @@ from unittest.mock import patch
 import redis
 
 from market import cache, service
-from market.providers.base import ProviderUnavailableError
 
 
-class ResolveHistoryProviderTest(unittest.TestCase):
-    def test_overseas_symbol_uses_yfinance_and_is_not_delayed(self):
-        provider, delayed = service._resolve_history_provider("AAPL")
-        self.assertIs(provider, service._yfinance)
-        self.assertFalse(delayed)
-
-    def test_korea_symbol_falls_back_to_yfinance_when_kis_not_configured(self):
-        with patch.object(service._korea, "is_configured", return_value=False):
-            provider, delayed = service._resolve_history_provider("005930")
-        self.assertIs(provider, service._yfinance)
-        self.assertTrue(delayed)
-
-    def test_korea_symbol_uses_korea_investment_when_configured(self):
-        with patch.object(service._korea, "is_configured", return_value=True):
-            provider, delayed = service._resolve_history_provider("005930")
-        self.assertIs(provider, service._korea)
-        self.assertFalse(delayed)
-
-
-class GetHistoryFallbackTest(unittest.TestCase):
+class GetHistoryTest(unittest.TestCase):
     """Force the fail-open path so results don't depend on a real Redis or its leftover state."""
 
     def setUp(self):
@@ -40,27 +20,23 @@ class GetHistoryFallbackTest(unittest.TestCase):
         self.addCleanup(patcher.stop)
         patcher.start()
 
-    def test_falls_back_to_yfinance_when_korea_provider_errors(self):
-        with patch.object(service._korea, "is_configured", return_value=True), \
-                patch.object(service._korea, "get_history", side_effect=ProviderUnavailableError("no creds")), \
-                patch.object(service._yfinance, "get_history", return_value={"symbol": "005930", "items": []}):
+    def test_korean_symbol_is_marked_delayed(self):
+        with patch.object(service._yfinance, "get_history", return_value={"symbol": "005930.KS", "items": []}):
             result = service.get_history("005930", 30)
         self.assertEqual(result["provider"], "yfinance")
         self.assertTrue(result["delayed"])
 
-    def test_uses_korea_investment_result_when_available(self):
-        with patch.object(service._korea, "is_configured", return_value=True), \
-                patch.object(service._korea, "get_history", return_value={"symbol": "005930", "items": [1]}):
-            result = service.get_history("005930", 30)
-        self.assertEqual(result["provider"], "korea-investment")
+    def test_overseas_symbol_is_not_delayed(self):
+        with patch.object(service._yfinance, "get_history", return_value={"items": [1]}):
+            result = service.get_history("AAPL", 30)
+        self.assertEqual(result["provider"], "yfinance")
         self.assertFalse(result["delayed"])
 
     def test_bare_korean_code_is_suffixed_before_hitting_yfinance(self):
         """Regression test: yfinance/OpenBB only resolves Korean tickers with a
         .KS/.KQ suffix, so a bare 6-digit code must be translated before the
-        fallback call, while the response still echoes back the original input."""
-        with patch.object(service._korea, "is_configured", return_value=False), \
-                patch.object(service._yfinance, "get_history", return_value={"items": [1]}) as get_history:
+        call, while the response still echoes back the original input."""
+        with patch.object(service._yfinance, "get_history", return_value={"items": [1]}) as get_history:
             result = service.get_history("005930", 30)
         get_history.assert_called_once_with("005930.KS", 30)
         self.assertEqual(result["symbol"], "005930")
