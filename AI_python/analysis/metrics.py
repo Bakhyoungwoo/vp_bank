@@ -114,6 +114,42 @@ def normalize_financials(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def normalize_balance(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Normalize common OpenBB/yfinance balance-sheet fields without inventing values."""
+    normalized = []
+    for row in rows:
+        total_liabilities = _field(row, "total_liabilities_net_minority_interest", "total_liabilities")
+        total_equity = _field(row, "common_stock_equity", "total_equity", "stockholders_equity")
+        total_debt = _field(row, "total_debt")
+        normalized.append({
+            "period": row.get("period_ending") or row.get("period") or row.get("date"),
+            "totalLiabilities": total_liabilities,
+            "totalEquity": total_equity,
+            "totalDebt": total_debt,
+        })
+    usable = [item for item in normalized if any(value is not None for value in item.values())]
+    latest = usable[0] if usable else {}  # 최신 재무상태표 행.
+    return {
+        "available": bool(usable),
+        "latest": latest,
+        "items": usable,
+        "evidence": ["OpenBB fundamental balance data"] if usable else [],
+    }
+
+
+def compute_valuation_ratios(
+    market_cap: float | None, net_income: float | None, balance_latest: dict[str, Any]
+) -> dict[str, Any]:
+    """PER/PBR/ROE/부채비율을 이미 조회된 값으로만 계산한다. 입력값이 없으면 계산하지 않고 None을 반환한다."""
+    equity = balance_latest.get("totalEquity")
+    liabilities = balance_latest.get("totalLiabilities")
+    per = market_cap / net_income if market_cap is not None and net_income else None
+    pbr = market_cap / equity if market_cap is not None and equity else None
+    roe = (net_income / equity * 100) if net_income is not None and equity else None
+    debt_ratio = (liabilities / equity * 100) if liabilities is not None and equity else None
+    return {"per": per, "pbr": pbr, "roe": roe, "debtRatio": debt_ratio}
+
+
 GROWTH_FIELD_LABELS = {
     "revenue": "매출",
     "operatingIncome": "영업이익",
