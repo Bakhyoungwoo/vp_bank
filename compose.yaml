@@ -49,6 +49,9 @@ services:
     container_name: vap-ai
     depends_on:
       - redis
+    env_file:
+      - path: ./AI_python/.env
+        required: false
     environment:
       REDIS_HOST: redis
       SPRING_HOST: host.docker.internal
