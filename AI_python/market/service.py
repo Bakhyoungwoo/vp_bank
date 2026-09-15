@@ -87,6 +87,14 @@ def get_stock_financials(symbol: str, limit: int = 5) -> dict[str, Any]:
     return _envelope(result, _yfinance.name, delayed=info["isKorea"], symbol=symbol)
 
 
+@cached("balance", ttl_seconds=3600)
+@rate_limited("yfinance", max_calls=30, window_seconds=60)
+def get_stock_balance(symbol: str, limit: int = 4) -> dict[str, Any]:
+    info = classify_symbol(symbol)
+    result = _yfinance.get_balance(_yfinance_symbol(symbol), limit)
+    return _envelope(result, _yfinance.name, delayed=info["isKorea"], symbol=symbol)
+
+
 @cached("news", ttl_seconds=120)
 @rate_limited("yfinance", max_calls=30, window_seconds=60)
 def get_stock_news(symbol: str, limit: int = 10) -> dict[str, Any]:
