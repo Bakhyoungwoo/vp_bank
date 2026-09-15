@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query
 
+from analysis.compare import InvalidComparisonError, compare_stocks
 from analysis.llm import generate_narrative
 from analysis.metrics import normalize_financials, price_metrics, score_financials, score_momentum
 from market.service import get_stock_detail
@@ -49,3 +50,19 @@ def analyze_stock(symbol: str, days: int = Query(default=30, ge=5, le=3650)):
     if available:
         result["llmNarrative"] = generate_narrative(result)
     return result
+
+
+@router.post("/stocks/compare")
+def compare(symbols: str = Query(..., description="쉼표로 구분된 2~5개 종목 코드, 예: AAPL,MSFT"),
+            days: int = Query(default=90, ge=5, le=3650)):
+    """2~5개 종목의 정량 지표를 같은 기준으로 계산해 비교표와 LLM 서술을 반환한다."""
+    try:
+        return compare_stocks(symbols.split(","), days)
+    except InvalidComparisonError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail="OpenBB unavailable") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Stock data unavailable") from exc
