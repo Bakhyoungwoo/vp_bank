@@ -4,13 +4,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 from market.cache import cached, enforce_rate_limit, rate_limited
-from market.providers.base import ProviderUnavailableError
-from market.providers.korea_investment_provider import KoreaInvestmentProvider
 from market.providers.yfinance_provider import YFinanceProvider
 from market.symbols import classify_symbol
 
 _yfinance = YFinanceProvider()
-_korea = KoreaInvestmentProvider()
 
 
 def _envelope(result: dict[str, Any], provider: str, delayed: bool, symbol: str | None = None) -> dict[str, Any]:
@@ -33,14 +30,6 @@ def _yfinance_symbol(symbol: str) -> str:
     return info["yahooSymbol"] if info["isKorea"] else symbol
 
 
-def _resolve_history_provider(symbol: str) -> tuple[Any, bool]:
-    """Use Korea Investment for KR symbols when configured; otherwise fall back to yfinance (marked delayed)."""
-    info = classify_symbol(symbol)
-    if info["isKorea"] and _korea.is_configured():
-        return _korea, False
-    return _yfinance, info["isKorea"]
-
-
 @cached("overview", ttl_seconds=30)
 @rate_limited("yfinance", max_calls=30, window_seconds=60)
 def get_overview() -> dict[str, Any]:
@@ -49,17 +38,10 @@ def get_overview() -> dict[str, Any]:
 
 @cached("history", ttl_seconds=300)
 def get_history(symbol: str, days: int = 30) -> dict[str, Any]:
-    provider, delayed = _resolve_history_provider(symbol)
-    query_symbol = symbol if provider is _korea else _yfinance_symbol(symbol)
-    enforce_rate_limit(provider.name, max_calls=30, window_seconds=60)
-    try:
-        result = provider.get_history(query_symbol, days)
-    except ProviderUnavailableError:
-        provider, delayed = _yfinance, True
-        query_symbol = _yfinance_symbol(symbol)
-        enforce_rate_limit(provider.name, max_calls=30, window_seconds=60)
-        result = provider.get_history(query_symbol, days)
-    return _envelope(result, provider.name, delayed, symbol=symbol)
+    info = classify_symbol(symbol)
+    enforce_rate_limit(_yfinance.name, max_calls=30, window_seconds=60)
+    result = _yfinance.get_history(_yfinance_symbol(symbol), days)
+    return _envelope(result, _yfinance.name, delayed=info["isKorea"], symbol=symbol)
 
 
 @cached("search", ttl_seconds=60)
