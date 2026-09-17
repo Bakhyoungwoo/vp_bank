@@ -66,13 +66,13 @@ services:
       - vap-network
 
   ai:
-    build: ./AI_python
+    build: ../ai
     container_name: vap-ai
     depends_on:
       redis:
         condition: service_healthy
     env_file:
-      - path: ./AI_python/.env
+      - path: ../ai/.env
         required: false
     environment:
       REDIS_HOST: redis

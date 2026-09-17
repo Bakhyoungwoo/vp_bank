@@ -18,6 +18,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Build with Gradle
+        working-directory: backend
         run: |
           chmod +x gradlew
           ./gradlew clean build -x test
@@ -31,8 +32,8 @@ jobs:
       - name: Build and Push Spring Image
         uses: docker/build-push-action@v4
         with:
-          context: .
-          file: ./Dockerfile
+          context: ./backend
+          file: ./infra/Dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/vap-spring:latest
 
@@ -52,8 +53,8 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           # 중요: Python 코드가 있는 하위 폴더 지정
-          context: ./AI_python
-          file: ./AI_python/Dockerfile
+          context: ./ai
+          file: ./ai/Dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/vap-python:latest
 
@@ -69,8 +70,9 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_KEY }}
-          source: "compose-prod.yaml"
+          source: "infra/compose-prod.yaml"
           target: "/home/${{ secrets.SERVER_USER }}/"
+          strip_components: 1
 
       # 서버 접속 후 배포 명령 실행
       - name: Execute Remote Deployment
