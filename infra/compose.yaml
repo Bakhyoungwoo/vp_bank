@@ -45,12 +45,12 @@ services:
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
 
   ai:
-    build: ./AI_python
+    build: ../ai
     container_name: vap-ai
     depends_on:
       - redis
     env_file:
-      - path: ./AI_python/.env
+      - path: ../ai/.env
         required: false
     environment:
       REDIS_HOST: redis
