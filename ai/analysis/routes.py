@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 from analysis.compare import InvalidComparisonError, compare_stocks
 from analysis.llm import generate_narrative
 from analysis.metrics import normalize_financials, price_metrics, score_financials, score_momentum
+from analysis.news_impact import analyze_news_impact
 from market.service import get_stock_detail
 
 router = APIRouter(prefix="/ai", tags=["ai-analysis"])
@@ -60,6 +61,21 @@ def compare(symbols: str = Query(..., description="쉼표로 구분된 2~5개 �
         return compare_stocks(symbols.split(","), days)
     except InvalidComparisonError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail="OpenBB unavailable") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Stock data unavailable") from exc
+
+
+@router.post("/stocks/{symbol}/news-impact")
+def news_impact(symbol: str,
+                 limit: int = Query(default=10, ge=1, le=30),
+                 days: int = Query(default=30, ge=5, le=3650)):
+    """종목 관련 뉴스 헤드라인을 키워드 기반으로 1차 분류하고 LLM 서술을 덧붙인다."""
+    try:
+        return analyze_news_impact(symbol, limit, days)
     except ImportError as exc:
         raise HTTPException(status_code=503, detail="OpenBB unavailable") from exc
     except RuntimeError as exc:
