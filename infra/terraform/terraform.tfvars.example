@@ -1,0 +1,12 @@
+aws_region     = "ap-northeast-2"
+instance_type  = "t3.medium"
+admin_cidr     = "203.0.113.10/32"
+root_volume_size = 30
+rds_instance_class = "db.t4g.micro"
+rds_storage_gb = 20
+rds_max_storage_gb = 100
+rds_username = "vap"
+rds_multi_az = false
+rds_backup_retention_days = 7
+rds_deletion_protection = true
+# Keep the real password out of git; set TF_VAR_rds_password in PowerShell.

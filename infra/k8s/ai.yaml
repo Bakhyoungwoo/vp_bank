@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata: { name: ai, namespace: vap }
+spec:
+  selector: { app: ai }
+  ports: [{ port: 8000, targetPort: 8000 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: ai, namespace: vap }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: ai } }
+  template:
+    metadata: { labels: { app: ai } }
+    spec:
+      containers:
+        - name: ai
+          image: docker.io/YOUR_DOCKERHUB_USERNAME/vap-python:latest
+          imagePullPolicy: Always
+          ports: [{ containerPort: 8000 }]
+          envFrom:
+            - configMapRef: { name: vap-config }
+            - secretRef: { name: vap-secrets, optional: true }
+          env: [{ name: TZ, value: Asia/Seoul }]
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { cpu: 500m, memory: 1024Mi }
+          readinessProbe: { httpGet: { path: /docs, port: 8000 }, initialDelaySeconds: 60, periodSeconds: 15 }
+          livenessProbe: { tcpSocket: { port: 8000 }, initialDelaySeconds: 90, periodSeconds: 30 }

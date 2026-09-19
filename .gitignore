@@ -48,3 +48,13 @@ out/
 .env.*
 !.env.example
 !**/.env.example
+
+# Terraform state, generated SSH keys, and local production secrets
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!**/*.tfvars.example
+*.tfplan
+*.pem
+infra/k8s/.env.production
