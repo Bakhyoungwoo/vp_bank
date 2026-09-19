@@ -1,0 +1,317 @@
+{
+  "conditions": {
+    "pages": 1,
+    "repeats": 3,
+    "similarity_threshold": 0.8
+  },
+  "categories": {
+    "politics": {
+      "article_count": 45,
+      "old": {
+        "model": "skt/kobert-base-v1",
+        "keywords": [
+          "종업원이",
+          "민원은",
+          "민원을",
+          "질의에",
+          "필요성을"
+        ],
+        "seconds": 54.52760719966667,
+        "seconds_samples": [
+          54.20075422199989,
+          53.69278060400029,
+          55.68928677299982
+        ],
+        "seconds_stddev": 1.037609691777465,
+        "particle_count": 5,
+        "similar_pairs": 10
+      },
+      "new": {
+        "model": "snunlp/KR-SBERT-V40K-klueNLI-augSTS + Okt",
+        "keywords": [
+          "서영교",
+          "반박",
+          "과거",
+          "악마",
+          "식약처"
+        ],
+        "top3": [
+          "서영교",
+          "반박",
+          "과거"
+        ],
+        "seconds": 1.3614942513333215,
+        "seconds_samples": [
+          1.3948286879999614,
+          1.254165624000052,
+          1.4354884419999507
+        ],
+        "seconds_stddev": 0.09514662149949293,
+        "particle_count": 0,
+        "similar_pairs": 0
+      },
+      "refinement_note": "정제 전에는 조사 포함·동일 어근 변형·긴 복합명사 노이즈를 확인하고, 정제 후에는 Top 3를 카테고리 핵심어로 검토한다."
+    },
+    "economy": {
+      "article_count": 46,
+      "old": {
+        "model": "skt/kobert-base-v1",
+        "keywords": [
+          "밀어올려",
+          "질의에",
+          "시스웍을",
+          "산업통상자원중소벤처기업위원회에서",
+          "의원이"
+        ],
+        "seconds": 53.45445106166684,
+        "seconds_samples": [
+          57.88368590400023,
+          51.74485609600015,
+          50.734811185000126
+        ],
+        "seconds_stddev": 3.8689324944956542,
+        "particle_count": 4,
+        "similar_pairs": 3
+      },
+      "new": {
+        "model": "snunlp/KR-SBERT-V40K-klueNLI-augSTS + Okt",
+        "keywords": [
+          "난방",
+          "에너지",
+          "송유관",
+          "추진",
+          "차단"
+        ],
+        "top3": [
+          "난방",
+          "에너지",
+          "송유관"
+        ],
+        "seconds": 1.7897694593333047,
+        "seconds_samples": [
+          2.5202010670000163,
+          1.5741798379999636,
+          1.2749274729999343
+        ],
+        "seconds_stddev": 0.6500274952634392,
+        "particle_count": 0,
+        "similar_pairs": 0
+      },
+      "refinement_note": "정제 전에는 조사 포함·동일 어근 변형·긴 복합명사 노이즈를 확인하고, 정제 후에는 Top 3를 카테고리 핵심어로 검토한다."
+    },
+    "society": {
+      "article_count": 46,
+      "old": {
+        "model": "skt/kobert-base-v1",
+        "keywords": [
+          "국가인권위원회",
+          "부위원장이",
+          "질의에",
+          "신원은",
+          "민원은"
+        ],
+        "seconds": 43.12301351633338,
+        "seconds_samples": [
+          44.96187037300024,
+          42.217876888999854,
+          42.189293287000055
+        ],
+        "seconds_stddev": 1.5925608811153351,
+        "particle_count": 4,
+        "similar_pairs": 6
+      },
+      "new": {
+        "model": "snunlp/KR-SBERT-V40K-klueNLI-augSTS + Okt",
+        "keywords": [
+          "경기도",
+          "지난달",
+          "재정",
+          "해명",
+          "기상캐스터"
+        ],
+        "top3": [
+          "경기도",
+          "지난달",
+          "재정"
+        ],
+        "seconds": 1.4457859076666562,
+        "seconds_samples": [
+          1.6974334940000517,
+          1.3826826139998047,
+          1.2572416150001118
+        ],
+        "seconds_stddev": 0.22677905952287153,
+        "particle_count": 0,
+        "similar_pairs": 0
+      },
+      "refinement_note": "정제 전에는 조사 포함·동일 어근 변형·긴 복합명사 노이즈를 확인하고, 정제 후에는 Top 3를 카테고리 핵심어로 검토한다."
+    },
+    "it": {
+      "article_count": 44,
+      "old": {
+        "model": "skt/kobert-base-v1",
+        "keywords": [
+          "점유율이",
+          "필요성은",
+          "필요성을",
+          "실어야",
+          "비보와의"
+        ],
+        "seconds": 44.616624041333274,
+        "seconds_samples": [
+          44.27739154000028,
+          45.351381431999926,
+          44.221099151999624
+        ],
+        "seconds_stddev": 0.6369407551657774,
+        "particle_count": 5,
+        "similar_pairs": 10
+      },
+      "new": {
+        "model": "snunlp/KR-SBERT-V40K-klueNLI-augSTS + Okt",
+        "keywords": [
+          "카카오",
+          "인수",
+          "게임",
+          "글로벌",
+          "신작"
+        ],
+        "top3": [
+          "카카오",
+          "인수",
+          "게임"
+        ],
+        "seconds": 1.3430064970001088,
+        "seconds_samples": [
+          1.3823755830003392,
+          1.3356174539999301,
+          1.3110264540000571
+        ],
+        "seconds_stddev": 0.036243937694717884,
+        "particle_count": 0,
+        "similar_pairs": 0
+      },
+      "refinement_note": "정제 전에는 조사 포함·동일 어근 변형·긴 복합명사 노이즈를 확인하고, 정제 후에는 Top 3를 카테고리 핵심어로 검토한다."
+    },
+    "world": {
+      "article_count": 45,
+      "old": {
+        "model": "skt/kobert-base-v1",
+        "keywords": [
+          "일으켜",
+          "선거지원위원회의",
+          "양국이",
+          "진용을",
+          "신아오"
+        ],
+        "seconds": 43.09580440599999,
+        "seconds_samples": [
+          42.73369027800027,
+          42.985941499999626,
+          43.56778144000009
+        ],
+        "seconds_stddev": 0.427760926473758,
+        "particle_count": 3,
+        "similar_pairs": 4
+      },
+      "new": {
+        "model": "snunlp/KR-SBERT-V40K-klueNLI-augSTS + Okt",
+        "keywords": [
+          "에스토니아",
+          "통제",
+          "확산",
+          "뉴시스",
+          "최고"
+        ],
+        "top3": [
+          "에스토니아",
+          "통제",
+          "확산"
+        ],
+        "seconds": 1.3546135623332702,
+        "seconds_samples": [
+          1.3330247849999068,
+          1.4172740740000336,
+          1.3135418279998703
+        ],
+        "seconds_stddev": 0.05513303179693419,
+        "particle_count": 0,
+        "similar_pairs": 0
+      },
+      "refinement_note": "정제 전에는 조사 포함·동일 어근 변형·긴 복합명사 노이즈를 확인하고, 정제 후에는 Top 3를 카테고리 핵심어로 검토한다."
+    },
+    "culture": {
+      "article_count": 44,
+      "old": {
+        "model": "skt/kobert-base-v1",
+        "keywords": [
+          "식욕을",
+          "감염이",
+          "계산원이",
+          "질환을",
+          "식후에"
+        ],
+        "seconds": 51.2608829226668,
+        "seconds_samples": [
+          49.43338028300013,
+          50.96004875100016,
+          53.38921973400011
+        ],
+        "seconds_stddev": 1.995004345773139,
+        "particle_count": 5,
+        "similar_pairs": 4
+      },
+      "new": {
+        "model": "snunlp/KR-SBERT-V40K-klueNLI-augSTS + Okt",
+        "keywords": [
+          "토요타",
+          "현대",
+          "페스티벌",
+          "열차",
+          "인간"
+        ],
+        "top3": [
+          "토요타",
+          "현대",
+          "페스티벌"
+        ],
+        "seconds": 1.5387685630000003,
+        "seconds_samples": [
+          1.6486651770001117,
+          1.6644443689997388,
+          1.3031961430001502
+        ],
+        "seconds_stddev": 0.2041641974575356,
+        "particle_count": 0,
+        "similar_pairs": 0
+      },
+      "refinement_note": "정제 전에는 조사 포함·동일 어근 변형·긴 복합명사 노이즈를 확인하고, 정제 후에는 Top 3를 카테고리 핵심어로 검토한다."
+    }
+  },
+  "refinement": {
+    "before_keyword_count": null,
+    "after_keyword_count": null,
+    "definition": "사용자가 제공한 정제 전/후 전체 키워드 수; 실제 집계 기준을 비고에 기록"
+  },
+  "quality_comparison": {
+    "validity_index_definition": "정제 후 Top 3의 형태소 적합성·중복 없음·카테고리 관련성을 합산한 사람 검토 지수(%)",
+    "validity_index_is_manual": true,
+    "ranking": [
+      "IT",
+      "ECONOMY",
+      "WORLD",
+      "POLITICS",
+      "SOCIETY",
+      "CULTURE"
+    ],
+    "scores": {
+      "IT": 94,
+      "ECONOMY": 92,
+      "WORLD": 90,
+      "POLITICS": 88,
+      "SOCIETY": 85,
+      "CULTURE": 82
+    }
+  },
+  "output_file": "keyword_experiment_result.json"
+}

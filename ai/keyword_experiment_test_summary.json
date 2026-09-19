@@ -1,0 +1,41 @@
+{
+  "article_count": 270,
+  "category_count": 6,
+  "keyword_count": {
+    "before": 30,
+    "after": 30
+  },
+  "particle_count": {
+    "before": 26,
+    "after": 0
+  },
+  "particle_ratio_percent": {
+    "before": 86.66666666666667,
+    "after": 0.0
+  },
+  "similar_pair_count": {
+    "before": 37,
+    "after": 0
+  },
+  "average_seconds": {
+    "before": 48.34639719127782,
+    "after": 1.4722397067777768
+  },
+  "average_category_stddev": {
+    "before": 1.5931348491335215,
+    "after": 0.21124905720583187
+  },
+  "speed_improvement_percent": 96.95480988799847,
+  "information_density": {
+    "status": "REVIEW",
+    "reason": "사람 검토 기준 미확정"
+  },
+  "validity_index": {
+    "status": "REVIEW",
+    "reason": "검토자·배점 기준 미확정"
+  },
+  "data_volume": {
+    "status": "REVIEW",
+    "reason": "집계 단위 미확정"
+  }
+}
