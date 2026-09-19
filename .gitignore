@@ -48,3 +48,28 @@ out/
 .env.*
 !.env.example
 !**/.env.example
+
+# Terraform state, generated SSH keys, and local production secrets
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!**/*.tfvars.example
+*.tfplan
+*.pem
+infra/k8s/.env.production
+
+# Python bytecode/tool caches and local virtualenvs
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+ai/.venv-finance/
+
+# Crawled/generated data and local run logs
+ai/Data/
+*.log
+
+# Local Chrome browser automation profiles
+.chrome-e2e/
+.chrome-e2e-unique/
