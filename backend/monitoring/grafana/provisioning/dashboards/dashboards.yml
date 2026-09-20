@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: VAP dashboards
+    orgId: 1
+    folder: VAP
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
