@@ -77,4 +77,33 @@ public class AiAnalysisController {
                     "message", "AI comparison service unavailable"));
         }
     }
+
+    /** Proxies a stock news-impact analysis request to the Python service. */
+    @PostMapping("/stocks/{symbol}/news-impact")
+    public ResponseEntity<Map<String, Object>> analyzeNewsImpact(
+            @PathVariable String symbol,
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(defaultValue = "30") int days
+    ) {
+        if (symbol.isBlank() || limit < 1 || limit > 30 || days < 5 || days > 3650) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Invalid symbol, limit, or days"));
+        }
+        URI url = UriComponentsBuilder.fromHttpUrl(aiBaseUrl + "/ai/stocks/{symbol}/news-impact")
+                .queryParam("limit", limit)
+                .queryParam("days", days)
+                .build()
+                .expand(symbol)
+                .encode(StandardCharsets.UTF_8)
+                .toUri();
+        try {
+            Map<String, Object> result = restTemplate.postForObject(url, null, Map.class);
+            return ResponseEntity.ok(result != null ? result : Map.of(
+                    "symbol", symbol, "status", "unavailable"));
+        } catch (Exception exception) {
+            return ResponseEntity.status(502).body(Map.of(
+                    "symbol", symbol,
+                    "status", "unavailable",
+                    "message", "AI news-impact service unavailable"));
+        }
+    }
 }
