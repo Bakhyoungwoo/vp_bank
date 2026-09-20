@@ -1,0 +1,50 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 0,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "title": "HTTP request rate",
+      "type": "timeseries",
+      "targets": [{"expr": "sum(rate(http_server_requests_seconds_count{job=\"vap-backend\"}[5m]))", "legendFormat": "requests/sec", "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "title": "JVM memory used",
+      "type": "timeseries",
+      "targets": [{"expr": "sum(jvm_memory_used_bytes{job=\"vap-backend\"}) / sum(jvm_memory_max_bytes{job=\"vap-backend\"})", "legendFormat": "used / max", "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 3,
+      "title": "HTTP latency (p95)",
+      "type": "timeseries",
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job=\"vap-backend\"}[5m])) by (le))", "legendFormat": "p95", "refId": "A"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 4,
+      "title": "HTTP 5xx responses",
+      "type": "timeseries",
+      "targets": [{"expr": "sum(rate(http_server_requests_seconds_count{job=\"vap-backend\",status=~\"5..\"}[5m]))", "legendFormat": "5xx/sec", "refId": "A"}]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["vap", "spring-boot"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "title": "VAP Backend Overview",
+  "uid": "vap-backend-overview",
+  "version": 1
+}
