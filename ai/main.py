@@ -3,11 +3,17 @@ import asyncio
 import json
 import os
 import requests
+import logging
+import time
+import uuid
 import redis
 from datetime import datetime
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+logger = logging.getLogger(__name__)
 
 # uvicorn을 어느 작업 디렉터리에서 실행하든 OPENAI_API_KEY 값을
 # 읽을 수 있도록 ai/.env 경로를 명시해서 로드한다.
@@ -63,7 +69,7 @@ def normalize_keywords(keywords):
     return cleaned
 
 
-def send_news_to_spring(article, category):
+def send_news_to_spring(article, category, request_id=None):
     # [수정] DB에도 키워드가 저장되어야 나중에 캐싱할 때 사용할 수 있음
     payload = {
         "category": category,
@@ -76,7 +82,12 @@ def send_news_to_spring(article, category):
     }
 
     try:
-        res = requests.post(SPRING_NEWS_API, json=payload, timeout=3)
+        save_start = time.perf_counter()
+        headers = {"X-Request-Id": request_id} if request_id else {}
+        res = requests.post(SPRING_NEWS_API, json=payload, headers=headers, timeout=3)
+        logger.info("[CRAWL] spring_save requestId=%s elapsedMs=%.1f status=%s category=%s",
+                    request_id, (time.perf_counter() - save_start) * 1000,
+                    res.status_code, category)
         if res.status_code != 200:
             print("[SPRING ERROR]", res.status_code, res.text)
     except Exception as e:
@@ -205,19 +216,30 @@ def crawl(category: str):
         raise HTTPException(status_code=400, detail=f"unsupported category: {category}")
 
     code = CATEGORIES[category]
+    request_id = str(uuid.uuid4())
+    total_start = time.perf_counter()
+    logger.info("[CRAWL] request_start requestId=%s category=%s", request_id, category)
     try:
+        crawl_start = time.perf_counter()
         crawl_category(category, code, max_pages=1)
+        logger.info("[CRAWL] crawling_complete requestId=%s elapsedMs=%.1f",
+                    request_id, (time.perf_counter() - crawl_start) * 1000)
         file_path = os.path.join(DATA_DIR, f"{category}.json")
         if not os.path.exists(file_path):
             return {"category": category, "articles": 0, "status": "completed"}
 
         with open(file_path, "r", encoding="utf-8") as f:
             articles = json.load(f)
+        save_all_start = time.perf_counter()
         for article in articles or []:
-            send_news_to_spring(article, category)
+            send_news_to_spring(article, category, request_id)
+        logger.info("[CRAWL] all_saves_complete requestId=%s articleCount=%s elapsedMs=%.1f",
+                    request_id, len(articles or []), (time.perf_counter() - save_all_start) * 1000)
 
         rd.delete(f"trend:{category}:articles")
-        return {"category": category, "articles": len(articles or []), "status": "completed"}
+        logger.info("[CRAWL] request_complete requestId=%s elapsedMs=%.1f",
+                    request_id, (time.perf_counter() - total_start) * 1000)
+        return {"category": category, "articles": len(articles or []), "status": "completed", "requestId": request_id}
     except Exception as exc:
         print(f"[CRAWL ERROR] {category}", exc)
         raise HTTPException(status_code=500, detail="crawl failed") from exc

@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.TestPropertySource;
@@ -60,14 +62,16 @@ class InternalNewsControllerTest {
     @Test
     @DisplayName("크롤링 트리거 성공 - Python 크롤링 완료 후 200")
     void triggerCrawl_success() throws Exception {
-        given(restTemplate.postForEntity(eq("http://localhost:8000/crawl?category=it"), any(), eq(String.class)))
+        given(restTemplate.exchange(eq("http://localhost:8000/crawl?category=it"), eq(HttpMethod.POST),
+                        any(HttpEntity.class), eq(String.class)))
                 .willReturn(ResponseEntity.ok("ok"));
 
         mockMvc.perform(post("/api/internal/news/crawl").param("category", "it"))
                 .andExpect(status().isOk())
                 .andExpect(content().string("crawl completed"));
 
-        then(restTemplate).should().postForEntity(eq("http://localhost:8000/crawl?category=it"), any(), eq(String.class));
+        then(restTemplate).should().exchange(eq("http://localhost:8000/crawl?category=it"), eq(HttpMethod.POST),
+                any(HttpEntity.class), eq(String.class));
     }
 
     @Test
