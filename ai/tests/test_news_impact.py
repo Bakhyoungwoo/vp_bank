@@ -15,20 +15,20 @@ def _detail(history=None):
 
 class ClassifyHeadlineTest(unittest.TestCase):
     def test_positive_keyword_only(self):
-        result = news_impact._classify_headline("A사, 3분기 최대 실적 흑자 전환")
+        result = news_impact.classify_headline("A사, 3분기 최대 실적 흑자 전환")
         self.assertEqual(result["impactLabel"], "positive")
         self.assertIn("흑자", result["matchedKeywords"]["positive"])
 
     def test_negative_keyword_only(self):
-        result = news_impact._classify_headline("B사, 리콜 사태로 소송 제기")
+        result = news_impact.classify_headline("B사, 리콜 사태로 소송 제기")
         self.assertEqual(result["impactLabel"], "negative")
 
     def test_no_keyword_is_neutral(self):
-        result = news_impact._classify_headline("C사, 신제품 발표회 개최")
+        result = news_impact.classify_headline("C사, 신제품 발표회 개최")
         self.assertEqual(result["impactLabel"], "neutral")
 
     def test_mixed_keywords_fall_back_to_neutral(self):
-        result = news_impact._classify_headline("D사, 흑자 전환했지만 소송 제기")
+        result = news_impact.classify_headline("D사, 흑자 전환했지만 소송 제기")
         self.assertEqual(result["impactLabel"], "neutral")
 
 
@@ -39,7 +39,7 @@ class DedupeArticlesTest(unittest.TestCase):
             {"url": "https://a", "title": "A duplicate"},
             {"url": "https://b", "title": "B"},
         ]
-        result = news_impact._dedupe_articles(items)
+        result = news_impact.dedupe_articles(items)
         self.assertEqual(len(result), 2)
 
 

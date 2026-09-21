@@ -98,5 +98,46 @@ class GenerateComparisonNarrativeTest(unittest.TestCase):
         self.assertIn("PER 10.0", prompt)
 
 
+class GeneratePriceMoveNarrativeTest(unittest.TestCase):
+    SAMPLE_ANALYSIS = {
+        "symbol": "AAPL",
+        "asOf": "2026-09-15T00:00:00Z",
+        "detection": {
+            "dailyChangePercent": 6.0,
+            "volumeRatio": 2.5,
+            "volatilityPercent": 3.0,
+        },
+        "marketComparison": {"name": "S&P500", "changePercent": 1.5},
+        "candidates": [
+            {"type": "volume_spike", "label": "거래량 급증", "score": 60, "evidence": ["최근 거래량이 평균 대비 2.50배"]},
+        ],
+    }
+
+    def test_returns_none_when_not_configured(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertIsNone(llm.generate_price_move_narrative(self.SAMPLE_ANALYSIS))
+
+    def test_returns_narrative_text_on_success(self):
+        fake_response = MagicMock()
+        fake_response.choices[0].message.content = "  급등락 요약입니다.  "
+        fake_client = MagicMock()
+        fake_client.chat.completions.create.return_value = fake_response
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test"}), \
+                patch.object(llm, "_get_client", return_value=fake_client):
+            result = llm.generate_price_move_narrative(self.SAMPLE_ANALYSIS)
+        self.assertEqual(result, "급등락 요약입니다.")
+
+    def test_prompt_includes_detection_and_candidates(self):
+        prompt = llm._build_price_move_prompt(self.SAMPLE_ANALYSIS)
+        self.assertIn("6.0", prompt)
+        self.assertIn("거래량 급증", prompt)
+        self.assertIn("S&P500", prompt)
+
+    def test_prompt_notes_no_candidates_when_empty(self):
+        analysis = {**self.SAMPLE_ANALYSIS, "candidates": []}
+        prompt = llm._build_price_move_prompt(analysis)
+        self.assertIn("근거가 확인된 후보 없음", prompt)
+
+
 if __name__ == "__main__":
     unittest.main()

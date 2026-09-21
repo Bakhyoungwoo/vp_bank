@@ -106,4 +106,33 @@ public class AiAnalysisController {
                     "message", "AI news-impact service unavailable"));
         }
     }
+
+    /** Proxies a price-move (surge/plunge cause) analysis request to the Python service. */
+    @PostMapping("/stocks/{symbol}/price-move")
+    public ResponseEntity<Map<String, Object>> analyzePriceMove(
+            @PathVariable String symbol,
+            @RequestParam(defaultValue = "30") int days,
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        if (symbol.isBlank() || days < 5 || days > 3650 || limit < 1 || limit > 30) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Invalid symbol, days, or limit"));
+        }
+        URI url = UriComponentsBuilder.fromHttpUrl(aiBaseUrl + "/ai/stocks/{symbol}/price-move")
+                .queryParam("days", days)
+                .queryParam("limit", limit)
+                .build()
+                .expand(symbol)
+                .encode(StandardCharsets.UTF_8)
+                .toUri();
+        try {
+            Map<String, Object> result = restTemplate.postForObject(url, null, Map.class);
+            return ResponseEntity.ok(result != null ? result : Map.of(
+                    "symbol", symbol, "status", "unavailable"));
+        } catch (Exception exception) {
+            return ResponseEntity.status(502).body(Map.of(
+                    "symbol", symbol,
+                    "status", "unavailable",
+                    "message", "AI price-move service unavailable"));
+        }
+    }
 }
