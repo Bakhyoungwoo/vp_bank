@@ -65,6 +65,8 @@ public class SecurityConfig {
                         ).authenticated()
                         // 북마크는 인증 필수
                         .requestMatchers("/api/bookmarks/**").authenticated()
+                        // 관심종목은 인증 필수
+                        .requestMatchers("/api/watchlist/**").authenticated()
                         // 비밀번호 변경은 인증 필수 (permitAll의 /api/users/** 보다 먼저 선언)
                         .requestMatchers("/api/users/password").authenticated()
                         // 크롤러, SSE, 조회, 회원가입, 로그아웃
