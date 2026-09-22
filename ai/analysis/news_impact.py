@@ -22,7 +22,7 @@ NEGATIVE_KEYWORDS = [
 ]
 
 
-def _dedupe_articles(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def dedupe_articles(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """URL을 우선 키로, 없으면 제목으로 중복 기사를 제거한다."""
     seen: set[str] = set()
     unique: list[dict[str, Any]] = []
@@ -35,7 +35,7 @@ def _dedupe_articles(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return unique
 
 
-def _published_at(raw: Any) -> str | None:
+def published_at(raw: Any) -> str | None:
     """yfinance/Yahoo 뉴스의 unix timestamp(초)를 ISO 문자열로 정규화한다."""
     if raw is None:
         return None
@@ -45,7 +45,7 @@ def _published_at(raw: Any) -> str | None:
         return raw if isinstance(raw, str) else None
 
 
-def _classify_headline(title: str | None) -> dict[str, Any]:
+def classify_headline(title: str | None) -> dict[str, Any]:
     """제목에 포함된 키워드만으로 긍정/부정/중립 후보를 판정한다.
 
     본문이 아닌 제목만 보고 내리는 1차 후보 분류이므로, 근거가 없으면
@@ -95,15 +95,15 @@ def analyze_news_impact(symbol: str, limit: int = 10, days: int = 30) -> dict[st
     news = get_stock_news(symbol, limit)
     detail = get_stock_detail(symbol, days)
 
-    raw_items = _dedupe_articles(news.get("items", []))
+    raw_items = dedupe_articles(news.get("items", []))
     articles = []
     for item in raw_items:
-        classification = _classify_headline(item.get("title"))
+        classification = classify_headline(item.get("title"))
         articles.append({
             "title": item.get("title"),
             "publisher": item.get("publisher"),
             "url": item.get("url"),
-            "publishedAt": _published_at(item.get("publishedAt")),
+            "publishedAt": published_at(item.get("publishedAt")),
             "relatedSymbols": item.get("relatedSymbols", []),
             **classification,
         })

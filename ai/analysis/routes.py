@@ -2,10 +2,12 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query
 
+from analysis.briefing import InvalidBriefingError, build_briefing
 from analysis.compare import InvalidComparisonError, compare_stocks
 from analysis.llm import generate_narrative
 from analysis.metrics import normalize_financials, price_metrics, score_financials, score_momentum
 from analysis.news_impact import analyze_news_impact
+from analysis.price_move import analyze_price_move
 from market.service import get_stock_detail
 
 router = APIRouter(prefix="/ai", tags=["ai-analysis"])
@@ -76,6 +78,37 @@ def news_impact(symbol: str,
     """종목 관련 뉴스 헤드라인을 키워드 기반으로 1차 분류하고 LLM 서술을 덧붙인다."""
     try:
         return analyze_news_impact(symbol, limit, days)
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail="OpenBB unavailable") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Stock data unavailable") from exc
+
+
+@router.post("/stocks/{symbol}/price-move")
+def price_move(symbol: str,
+                days: int = Query(default=30, ge=5, le=3650),
+                limit: int = Query(default=10, ge=1, le=30)):
+    """전일 대비 급변·거래량 급증을 감지하고 시장 지수·뉴스를 근거로 원인 후보를 점수화한다."""
+    try:
+        return analyze_price_move(symbol, days, limit)
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail="OpenBB unavailable") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Stock data unavailable") from exc
+
+
+@router.post("/briefing")
+def briefing(symbols: str = Query(..., description="쉼표로 구분된 관심종목 코드, 최대 20개"),
+             days: int = Query(default=7, ge=1, le=90)):
+    """관심종목별 가격·거래량·뉴스 변화를 마지막 브리핑 시점(days) 기준으로 요약한다."""
+    try:
+        return build_briefing(symbols.split(","), days)
+    except InvalidBriefingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ImportError as exc:
         raise HTTPException(status_code=503, detail="OpenBB unavailable") from exc
     except RuntimeError as exc:

@@ -31,3 +31,21 @@ CREATE TABLE IF NOT EXISTS bookmark (
     published_at VARCHAR(255),
     saved_at     DATETIME(6)
 );
+
+CREATE TABLE IF NOT EXISTS watchlist (
+    id       BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id  BIGINT      NOT NULL,
+    symbol   VARCHAR(20) NOT NULL,
+    added_at DATETIME(6),
+    UNIQUE KEY uk_watchlist_user_symbol (user_id, symbol)
+);
+
+CREATE TABLE IF NOT EXISTS briefing_history (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id       BIGINT       NOT NULL,
+    generated_at  DATETIME(6)  NOT NULL,
+    symbols       VARCHAR(500) NOT NULL,
+    status        VARCHAR(30),
+    llm_narrative TEXT,
+    INDEX idx_briefing_user (user_id, generated_at)
+);

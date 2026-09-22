@@ -32,7 +32,8 @@ LLM        = 자연어 해석·설명·리포트 생성
 - Redis 기반 캐시·요청 제한 적용 (Redis 장애 시 fail-open)
 - AI 종목 분석 서술(`llmNarrative`) 생성 — OpenAI Chat Completions 연동 (`AI_python/analysis/llm.py`). 프롬프트에는 이미 계산된 점수·근거만 전달하고 원본 가격·재무 데이터는 전달하지 않는다. `OPENAI_API_KEY` 미설정 시 또는 호출 실패 시 예외 없이 `llmNarrative: null`로 폴백한다. `AI_python/.env`(gitignore 대상, `.env.example` 참고)로 키를 관리한다
 - AI 종목 비교 API 추가 (`POST /ai/stocks/compare?symbols=A,B&days=90`, `AI_python/analysis/compare.py`) — 2~5개 종목의 매출 성장률·영업이익률·PER·PBR·ROE·부채비율·기간 수익률·변동성을 동일 기준으로 계산하고, 동일 업종 여부를 판정하며, 위 수치만으로 LLM 비교 서술을 생성한다. PER/PBR/ROE/부채비율은 시가총액·순이익·자기자본·부채 총계가 모두 확인될 때만 계산하고, 하나라도 없으면 억지로 계산하지 않는다. `vp_front`의 `stock-compare.html`이 실제 이 API에 연결되어 있다
-- AI 종목 뉴스 영향 분석 API 추가 (`POST /ai/stocks/{symbol}/news-impact?limit=10&days=30`, `ai/analysis/news_impact.py`) — 뉴스 헤드라인을 키워드 기반으로 긍정/부정/중립 1차 분류하고, 최근 주가 모멘텀과 함께 LLM이 근거 기반으로 서술한다. 인과관계를 확정하지 않고 근거가 부족하면 "확인 가능한 영향 없음"을 명시한다. Spring Backend에도 동일 경로(`POST /api/ai/stocks/{symbol}/news-impact`)의 프록시 엔드포인트를 추가했다 (`AiAnalysisController`). `vp_front`는 아직 이 API에 연결되지 않고 목업 상태다
+- AI 종목 뉴스 영향 분석 API 추가 (`POST /ai/stocks/{symbol}/news-impact?limit=10&days=30`, `ai/analysis/news_impact.py`) — 뉴스 헤드라인을 키워드 기반으로 긍정/부정/중립 1차 분류하고, 최근 주가 모멘텀과 함께 LLM이 근거 기반으로 서술한다. 인과관계를 확정하지 않고 근거가 부족하면 "확인 가능한 영향 없음"을 명시한다. Spring Backend에도 동일 경로(`POST /api/ai/stocks/{symbol}/news-impact`)의 프록시 엔드포인트를 추가했다 (`AiAnalysisController`). `vp_front`의 `news-impact.html`/`news-impact.js`가 실제 이 API에 연결되어 있다(브라우저로 검증 완료)
+- AI 급등락 원인 분석 API 추가 (`POST /ai/stocks/{symbol}/price-move?days=30&limit=10`, `ai/analysis/price_move.py`) — 전일 대비 변동률(±5% 이상) 또는 거래량(평균 대비 2배 이상) 기준으로 급등락을 감지하고, 감지된 경우에만 같은 시장 지수(KOSPI/KOSDAQ/S&P500) 동반 변동, 거래량 급증, 뉴스 방향 일치 여부를 원인 후보로 점수화한다. 근거가 없으면 후보를 억지로 만들지 않고 "확인 가능한 직접 원인 없음"을 명시하며, LLM은 이미 계산된 후보·점수만 서술하고 인과관계를 확정하지 않는다. Spring Backend에도 동일 경로(`POST /api/ai/stocks/{symbol}/price-move`)의 프록시 엔드포인트를 추가했다 (`AiAnalysisController`). `vp_front` 연결은 아직 없다
 
 ### 현재 제한사항
 
@@ -41,10 +42,10 @@ LLM        = 자연어 해석·설명·리포트 생성
 - yfinance에서 KOSDAQ, KOSPI200 등 일부 한국 지수는 조회가 불안정할 수 있다.
 - 6자리 국내 종목 코드만으로는 KOSPI/KOSDAQ 구분이 불가능해 `marketUncertain` 플래그로 표시한다 (`AI_python/market/symbols.py`).
 - FinRobot 자체(에이전트/워크플로우 프레임워크)는 아직 프로젝트에 직접 연결되지 않았다. AI 종목 분석의 서술 생성은 우선 OpenAI Chat Completions로 직접 연동했다.
-- AI 종목 분석, 종목 비교, 뉴스 영향 분석은 결정론적 수치(또는 키워드 1차 분류) + LLM 서술까지 구현되어 있고, 급등락 원인 분석, 개인화 브리핑, Tool Calling 챗봇은 후속 개발 대상이다 (`vp_front`에는 화면 골격과 목업만 있음, 뉴스 영향 분석 화면도 아직 이 API에 연결되지 않았다).
+- AI 종목 분석, 종목 비교, 뉴스 영향 분석, 급등락 원인 분석은 결정론적 수치(또는 키워드 1차 분류) + LLM 서술까지 구현되어 있고, 개인화 브리핑, Tool Calling 챗봇은 후속 개발 대상이다. 급등락 원인 분석은 `vp_front` 연결이 아직 없다(백엔드 API만 구현됨).
 - 종목 비교의 PER/PBR/ROE/부채비율은 yfinance 대차대조표 필드(`common_stock_equity`를 자기자본으로 사용)에 의존한다. 일부 종목(자사주 매입이 많은 기업 등)은 자기자본이 매우 작아 ROE·부채비율이 비정상적으로 크게 계산될 수 있다 — 계산식 자체는 정확하지만 해석 시 주의가 필요하다.
 - 로컬 Windows 개발 환경에서 `openai` SDK의 의존 패키지 `jiter`가 DLL 로드 오류를 낼 수 있다(Visual C++ 런타임 미설치로 추정). 이 경우 `llmNarrative`는 예외 없이 `null`로 폴백하며, Docker(Linux) 배포 환경에서는 재현되지 않을 것으로 예상된다 — 로컬에서 실제 서술까지 확인하려면 Visual C++ Redistributable(x64) 설치가 필요하다.
-- 프론트(`vp_front`)의 뉴스 영향/시장 브리핑/챗봇 화면은 목업 데이터로만 동작한다. 종목 비교와 뉴스 영향 분석은 백엔드 API가 준비되어 있지만(뉴스 영향은 프론트 연결 전이고, 종목 비교만 실제 연결됨), 시장 브리핑/챗봇은 해당 백엔드 API 자체가 아직 없다.
+- 프론트(`vp_front`)의 시장 브리핑/챗봇 화면은 아직 목업 데이터로만 동작한다. 종목 비교와 뉴스 영향 분석은 실제 백엔드 API에 연결되어 있다. 급등락 원인 분석은 백엔드 API는 준비되어 있으나 프론트 연결 전이고, 시장 브리핑/챗봇은 해당 백엔드 API 자체가 아직 없다.
 
 ## 3. 목표 아키텍처
 
@@ -371,11 +372,11 @@ AI_python
 5. FinRobot 분석 workflow 연결
 6. AI 종목 분석
 7. 종목 비교
-8. (완료 — 뉴스 영향 분석 API, 프론트 연결은 후속)
-9. 급등락 원인 분석
+8. (완료 — 뉴스 영향 분석 API + 프론트 연결)
+9. (완료 — 급등락 원인 분석 API, 프론트 연결은 후속)
 10. 개인화 브리핑
 11. Tool Calling 챗봇
-12. 캐시·모니터링·품질평가·배포 안정화
+12. 캐시·모니터링·품질평가·배포 안정화 (일부 진행 중 — Prometheus/Grafana, 뉴스 크롤링 트레이싱)
 ```
 
 ## 9. 1차 릴리스 범위

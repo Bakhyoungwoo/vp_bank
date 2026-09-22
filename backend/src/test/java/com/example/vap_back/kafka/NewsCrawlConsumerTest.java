@@ -9,6 +9,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import static org.assertj.core.api.Assertions.*;
@@ -31,6 +34,8 @@ class NewsCrawlConsumerTest {
         // given
         NewsCrawlEvent event = new NewsCrawlEvent("it", System.currentTimeMillis());
         given(crawlLockService.isLocked("it")).willReturn(false);
+        given(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                .willReturn(ResponseEntity.ok("ok"));
 
         // when
         consumer.consume(event);
@@ -63,6 +68,8 @@ class NewsCrawlConsumerTest {
         // given
         NewsCrawlEvent event = new NewsCrawlEvent("it", System.currentTimeMillis());
         given(crawlLockService.isLocked("it")).willReturn(false);
+        given(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                .willReturn(ResponseEntity.ok("ok"));
         willThrow(new RuntimeException("crawl failed"))
                 .given(newsCacheService).crawlAndSave(anyString(), anyList());
 
@@ -81,6 +88,8 @@ class NewsCrawlConsumerTest {
         // given
         NewsCrawlEvent event = new NewsCrawlEvent("economy", System.currentTimeMillis());
         given(crawlLockService.isLocked("economy")).willReturn(false);
+        given(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                .willReturn(ResponseEntity.ok("ok"));
         willThrow(new IllegalStateException("Redis down"))
                 .given(newsCacheService).crawlAndSave(anyString(), anyList());
 

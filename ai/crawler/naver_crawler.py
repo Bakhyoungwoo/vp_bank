@@ -2,9 +2,12 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import time
+import logging
 import os
 import re
 from collections import Counter
+
+logger = logging.getLogger(__name__)
 
 # 네이버 뉴스 카테고리 페이지 기본 URL
 BASE_URL = "https://news.naver.com/section"
@@ -50,10 +53,14 @@ def extract_keywords(title, content, top_n=5):
 def crawl_category(name, code, max_pages=1):
     articles = []
     visited = set()
+    total_start = time.perf_counter()
 
     for page in range(1, max_pages + 1):
         url = f"{BASE_URL}/{code}?page={page}"
-        res = requests.get(url, headers=HEADERS)
+        http_start = time.perf_counter()
+        res = requests.get(url, headers=HEADERS, timeout=(5, 15))
+        logger.info("[CRAWL] category_page_http category=%s page=%s elapsedMs=%.1f status=%s",
+                    name, page, (time.perf_counter() - http_start) * 1000, res.status_code)
         res.encoding = "utf-8"
         soup = BeautifulSoup(res.text, "html.parser")
 
@@ -82,8 +89,12 @@ def crawl_category(name, code, max_pages=1):
 
 def crawl_article(url):
     try:
-        res = requests.get(url, headers=HEADERS)
+        http_start = time.perf_counter()
+        res = requests.get(url, headers=HEADERS, timeout=(5, 15))
+        logger.info("[CRAWL] article_http elapsedMs=%.1f status=%s url=%s",
+                    (time.perf_counter() - http_start) * 1000, res.status_code, url)
         res.encoding = "utf-8"
+        parse_start = time.perf_counter()
         soup = BeautifulSoup(res.text, "html.parser")
 
         title_tag = soup.select_one("h2#title_area")
@@ -106,6 +117,8 @@ def crawl_article(url):
         )
 
         keywords = extract_keywords(title, content)
+        logger.info("[CRAWL] article_parse elapsedMs=%.1f url=%s",
+                    (time.perf_counter() - parse_start) * 1000, url)
 
         return {
             "title": title,
