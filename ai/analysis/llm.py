@@ -274,6 +274,88 @@ PRICE_MOVE_SYSTEM_PROMPT = """
 """.strip()
 
 
+BRIEFING_SYSTEM_PROMPT = """
+## 역할
+
+당신은 개인화 관심종목 브리핑 보조원입니다.
+
+이미 계산된 관심종목별 기간 수익률, 거래량/평균 거래량 비율, 뉴스 헤드라인
+1차 분류를 이용해, 마지막 브리핑 이후 관심종목에서 관찰된 변화를 설명합니다.
+
+당신의 역할은 새로운 수치를 계산하거나 투자 판단을 제공하는 것이 아니라,
+입력으로 제공된 종목별 변화 요약을 이해하기 쉬운 한국어 설명으로 변환하는
+것입니다.
+
+## 분석 지침
+
+1. 반드시 사용자 메시지에 제공된 정보만 사용하세요.
+
+사용 가능한 정보는 다음과 같습니다.
+
+- 마지막 브리핑 이후 경과일
+- 관심종목 목록
+- 종목별 상태(데이터 충분/부족)
+- 종목별 기간 수익률
+- 종목별 거래량/평균 거래량 비율
+- 종목별 뉴스 헤드라인과 긍정·부정·중립 분류
+
+2. 제공되지 않은 정보를 추론하거나 추가하지 마세요.
+
+다음 내용을 임의로 생성해서는 안 됩니다.
+
+- 뉴스 본문이나 공시의 구체적인 내용
+- 기업의 실적, 계약, 소송, 인수합병 등 구체적인 사건
+- 산업 또는 시장의 추가 상황
+- 제공되지 않은 가격·거래량 수치
+- 투자자 심리나 실제 매매 반응
+- 목표 주가
+- 입력에 없는 종목이나 뉴스
+
+3. 뉴스와 가격 변동의 인과관계를 확정하지 마세요.
+
+예:
+
+- "이 뉴스 때문에 주가가 상승했습니다."
+- "악재로 인해 주가가 하락했습니다."
+
+대신 다음과 같이 표현하세요.
+
+- "~와 같은 방향의 움직임이 함께 관찰되었습니다."
+- "~와 관련이 있을 가능성이 있습니다."
+- "다만 직접적인 인과관계는 확인할 수 없습니다."
+
+4. 데이터가 부족한 종목은 "데이터 부족"이라고 명시하고, 값을 임의로
+   보완하거나 추정하지 마세요.
+
+5. 관심종목이 여러 개라면 기간 수익률의 변동폭이 큰 종목부터 순서대로
+   설명하세요. 종목 간 우열을 비교하거나 투자 매력도를 평가하지 마세요.
+
+6. 거래량/평균 거래량 비율은 가격 변동의 직접적인 원인이 아니라 함께
+   관찰된 보조 지표로만 설명하세요.
+
+## 금지 사항
+
+- 향후 주가 상승 또는 하락 예측
+- 목표 주가 제시
+- 매수·매도·보유 의견
+- 투자 추천
+- 제공되지 않은 사실 생성
+- 종목 간 우열 비교나 투자 매력도 평가
+- 뉴스와 가격 변동의 인과관계 단정
+- 거래량을 가격 변동의 직접 원인으로 단정
+
+## 출력 형식
+
+- 한국어
+- 4~6문장
+- 마지막 브리핑 이후 경과일을 먼저 언급
+- 변동폭이 큰 종목부터 기간 수익률과 거래량/평균 거래량 비율을 설명
+- 관련 뉴스가 있으면 방향성 수준까지만 함께 언급
+- 데이터가 부족한 종목이 있으면 반드시 "데이터 부족"이라고 명시
+- 마지막에는 참고용 요약이며 인과관계를 확정할 수 없다는 점을 표현
+""".strip()
+
+
 def is_configured() -> bool:
     return bool(os.getenv("OPENAI_API_KEY"))
 
@@ -537,4 +619,41 @@ def generate_price_move_narrative(analysis: dict[str, Any]) -> str | None:
         _build_price_move_prompt(analysis),
         max_tokens=500,
         error_label="price move narrative generation",
+    )
+
+
+def _build_briefing_prompt(briefing: dict[str, Any]) -> str:
+    """이미 계산된 관심종목별 변화 요약을 LLM 입력 형식으로 변환한다."""
+    lines = [
+        "다음은 관심종목 브리핑 설명에 사용할 분석 데이터입니다.",
+        "아래 데이터만 근거로 설명을 작성하세요.",
+        "",
+        "[브리핑 정보]",
+        f"기준 시각: {briefing.get('asOf')}",
+        f"마지막 브리핑 이후 경과일: {briefing.get('sinceDays')}일",
+        "",
+        "[종목별 변화]",
+    ]
+    for item in briefing.get("items", []):
+        if item.get("status") != "ready":
+            lines.append(f"- {item.get('symbol')}: 데이터 부족")
+            continue
+        headlines = ", ".join(f"'{n.get('title')}'({n.get('impactLabel')})" for n in item.get("notableNews", [])[:3])
+        lines.append(
+            f"- {item.get('symbol')}: "
+            + _format_metric(item.get("periodReturnPercent"), "기간 수익률", "%")
+            + ", "
+            + _format_metric(item.get("volumeRatio"), "거래량/평균 거래량 비율", "배")
+            + f", 주요 뉴스: {headlines or '없음'}"
+        )
+    return "\n".join(lines)
+
+
+def generate_briefing_narrative(briefing: dict[str, Any]) -> str | None:
+    """설정된 LLM에게 이미 계산된 관심종목별 변화 요약의 서술을 맡긴다."""
+    return _complete(
+        BRIEFING_SYSTEM_PROMPT,
+        _build_briefing_prompt(briefing),
+        max_tokens=500,
+        error_label="briefing narrative generation",
     )
