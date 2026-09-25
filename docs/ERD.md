@@ -4,8 +4,8 @@
 
 ```mermaid
 erDiagram
-    USERS ||--o{ NEWS_BOOKMARKS : creates
-    NEWS ||--o{ NEWS_BOOKMARKS : bookmarked_by
+    USERS ||--o{ BOOKMARK : creates
+    NEWS ||--o{ BOOKMARK : bookmarked_by
     USERS ||--o{ WATCHLIST : owns
     USERS ||--o{ BRIEFING_HISTORY : generates
 
@@ -31,7 +31,7 @@ erDiagram
         DATETIME created_at
     }
 
-    NEWS_BOOKMARKS {
+    BOOKMARK {
         BIGINT id PK
         BIGINT user_id FK
         BIGINT news_id FK
@@ -55,38 +55,17 @@ erDiagram
     }
 ```
 
-## 테이블 설명
+## 테이블 정의
 
-### `users`
+| 테이블 | 역할 | 주요 컬럼 |
+|---|---|---|
+| `users` | 사용자 및 인증 정보 | `id`, `email`, `interest_category` |
+| `news` | 크롤링 뉴스와 키워드 분석 결과 | `id`, `url`, `category`, `published_at`, `keywords` |
+| `bookmark` | 사용자와 뉴스의 저장 관계 | `user_id`, `news_id`, `saved_at` |
+| `watchlist` | 사용자의 관심종목 | `user_id`, `symbol`, `added_at` |
+| `briefing_history` | AI 브리핑 생성 이력 | `user_id`, `symbols`, `generated_at`, `llm_narrative` |
 
-서비스 사용자와 인증 정보를 저장합니다. 이메일은 중복될 수 없으며, 뉴스 관심 카테고리와 개인 정보를 함께 관리합니다.
-
-### `news`
-
-크롤링된 뉴스의 원문과 분석 결과를 저장합니다. `url`은 동일 뉴스의 중복 저장을 막기 위해 unique로 관리하며, 카테고리와 발행 시각에 인덱스를 둡니다.
-
-### `bookmark`
-
-사용자가 저장한 뉴스를 표현하는 연결 테이블입니다.
-
-- `user_id` → `users.id`
-- `news_id` → `news.id`
-- `(user_id, news_id)` unique로 동일 사용자의 중복 북마크 방지
-- 뉴스 제목이나 URL을 복사하지 않고 `news_id`로 원본 뉴스 조회
-
-클라이언트 요청은 기존 호환성을 위해 뉴스 URL을 받을 수 있지만, 백엔드에서는 URL로 `news`를 조회한 뒤 `news_id`를 저장합니다.
-
-### `watchlist`
-
-사용자가 관심 등록한 종목 코드를 저장합니다. 현재 시세·재무 정보는 외부 Provider에서 실시간 조회하므로 별도의 `stock` 테이블은 사용하지 않습니다.
-
-### `briefing_history`
-
-사용자별 AI 브리핑 생성 이력과 생성 결과를 저장합니다. `symbols`는 현재 관심종목 코드를 콤마로 저장하는 구조입니다.
-
-## 무결성 규칙
-
-현재 스키마에는 다음 foreign key가 적용되어 있습니다.
+## 관계 및 무결성 제약
 
 ```text
 bookmark.user_id          → users.id
@@ -95,34 +74,79 @@ watchlist.user_id         → users.id
 briefing_history.user_id  → users.id
 ```
 
-뉴스 또는 사용자를 삭제할 때 연결된 북마크·관심종목·브리핑 이력을 어떻게 처리할지는 운영 정책에 따라 결정해야 합니다. 뉴스는 북마크 이력 보존을 위해 실제 삭제보다 `deleted_at`을 사용하는 Soft Delete 방식을 권장합니다.
+| 테이블 | 제약조건 | 목적 |
+|---|---|---|
+| `users` | `email UNIQUE` | 사용자 계정 중복 방지 |
+| `news` | `url UNIQUE` | 동일 뉴스 중복 저장 방지 |
+| `bookmark` | `UNIQUE(user_id, news_id)` | 동일 사용자의 중복 북마크 방지 |
+| `watchlist` | `UNIQUE(user_id, symbol)` | 동일 사용자의 중복 관심종목 방지 |
 
-## 기존 데이터 마이그레이션
+## 인덱스
 
-기존 `bookmark`가 `news_url`을 사용하고 있었다면 다음 순서로 마이그레이션할 수 있습니다.
+| 테이블 | 인덱스 | 사용 목적 |
+|---|---|---|
+| `news` | `idx_category(category)` | 카테고리별 뉴스 조회 |
+| `news` | `idx_published_at(published_at)` | 최신 뉴스 정렬 및 조회 |
+| `briefing_history` | `idx_briefing_user(user_id, generated_at)` | 사용자별 최근 브리핑 조회 |
+| `bookmark` | `uk_bookmark_user_news(user_id, news_id)` | 중복 방지 및 사용자별 북마크 식별 |
+| `watchlist` | `uk_watchlist_user_symbol(user_id, symbol)` | 중복 방지 및 사용자별 관심종목 식별 |
 
-```sql
-ALTER TABLE bookmark ADD COLUMN news_id BIGINT NULL;
+## 저장소별 데이터 경계
 
-UPDATE bookmark b
-JOIN news n ON n.url = b.news_url
-SET b.news_id = n.id;
+관계형 데이터베이스에 저장되는 데이터와 캐시·메시징 데이터는 다음과 같이 분리됩니다.
 
--- 매칭되지 않은 북마크를 확인한 뒤 별도 처리
-SELECT * FROM bookmark WHERE news_id IS NULL;
+```text
+MySQL
+ ├─ users
+ ├─ news
+ ├─ bookmark
+ ├─ watchlist
+ └─ briefing_history
 
-ALTER TABLE bookmark
-    MODIFY news_id BIGINT NOT NULL,
-    ADD CONSTRAINT fk_bookmark_news
-        FOREIGN KEY (news_id) REFERENCES news(id),
-    ADD CONSTRAINT uk_bookmark_user_news
-        UNIQUE (user_id, news_id);
+Redis
+ ├─ 뉴스 캐시
+ ├─ 카테고리별 키워드 랭킹
+ ├─ 사용자 관심 키워드
+ ├─ Rate Limit 상태
+ └─ 비동기 크롤링 Job 상태
 
-ALTER TABLE bookmark
-    DROP COLUMN news_url,
-    DROP COLUMN title,
-    DROP COLUMN press,
-    DROP COLUMN published_at;
+Kafka
+ ├─ crawl-news
+ ├─ users-topic
+ └─ news-alert
+
+External Provider
+ └─ OpenBB / yfinance 시세·재무 데이터
 ```
 
-실제 운영 DB에 적용할 때는 애플리케이션 중단 여부와 매칭되지 않은 북마크 처리 정책을 먼저 확인해야 합니다.
+종목 시세·재무 데이터는 외부 Provider에서 조회하므로 현재 MySQL의 관계형 ERD에는 종목 원천 데이터 테이블이 포함되지 않습니다.
+
+## 주요 데이터 흐름
+
+### 북마크 저장
+
+```text
+Client: 뉴스 URL 전송
+  → NewsRepository.findByUrl(url)
+  → NEWS.id 조회
+  → BOOKMARK.news_id 저장
+```
+
+클라이언트 API는 기존 호환성을 위해 URL을 입력으로 받지만, 데이터베이스에는 뉴스 URL을 중복 저장하지 않고 `news_id`를 저장합니다.
+
+### 북마크 조회
+
+```text
+BOOKMARK
+  → BOOKMARK.news_id로 NEWS 조회
+  → 뉴스 URL·제목·언론사·발행일 반환
+```
+
+### 뉴스 수집
+
+```text
+FastAPI Crawler
+  → Spring Boot 내부 뉴스 API
+  → NEWS 저장
+  → Redis 뉴스 캐시 및 키워드 랭킹 갱신
+```
