@@ -14,7 +14,7 @@ public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
     List<Bookmark> findAllByUserIdOrderBySavedAtDesc(Long userId);
 
     @QueryHints(@QueryHint(name = "org.hibernate.readOnly", value = "true"))
-    Optional<Bookmark> findByUserIdAndNewsUrl(Long userId, String newsUrl);
+    Optional<Bookmark> findByUserIdAndNewsId(Long userId, Long newsId);
 
-    boolean existsByUserIdAndNewsUrl(Long userId, String newsUrl);
+    boolean existsByUserIdAndNewsId(Long userId, Long newsId);
 }
