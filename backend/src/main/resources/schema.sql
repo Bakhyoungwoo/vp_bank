@@ -25,11 +25,11 @@ CREATE TABLE IF NOT EXISTS news (
 CREATE TABLE IF NOT EXISTS bookmark (
     id           BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id      BIGINT       NOT NULL,
-    news_url     VARCHAR(1000) NOT NULL,
-    title        VARCHAR(255),
-    press        VARCHAR(255),
-    published_at VARCHAR(255),
-    saved_at     DATETIME(6)
+    news_id      BIGINT       NOT NULL,
+    saved_at     DATETIME(6),
+    UNIQUE KEY uk_bookmark_user_news (user_id, news_id),
+    CONSTRAINT fk_bookmark_user FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_bookmark_news FOREIGN KEY (news_id) REFERENCES news(id)
 );
 
 CREATE TABLE IF NOT EXISTS watchlist (
@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS watchlist (
     user_id  BIGINT      NOT NULL,
     symbol   VARCHAR(20) NOT NULL,
     added_at DATETIME(6),
-    UNIQUE KEY uk_watchlist_user_symbol (user_id, symbol)
+    UNIQUE KEY uk_watchlist_user_symbol (user_id, symbol),
+    CONSTRAINT fk_watchlist_user FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS briefing_history (
@@ -47,5 +48,6 @@ CREATE TABLE IF NOT EXISTS briefing_history (
     symbols       VARCHAR(500) NOT NULL,
     status        VARCHAR(30),
     llm_narrative TEXT,
-    INDEX idx_briefing_user (user_id, generated_at)
+    INDEX idx_briefing_user (user_id, generated_at),
+    CONSTRAINT fk_briefing_user FOREIGN KEY (user_id) REFERENCES users(id)
 );

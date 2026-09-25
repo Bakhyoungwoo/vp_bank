@@ -1,10 +1,12 @@
 package com.example.vap_back.service;
 
 import com.example.vap_back.Entity.Bookmark;
+import com.example.vap_back.Entity.News;
 import com.example.vap_back.Entity.User;
 import com.example.vap_back.dto.BookmarkRequestDto;
 import com.example.vap_back.exception.UserNotFoundException;
 import com.example.vap_back.repository.BookmarkRepository;
+import com.example.vap_back.repository.NewsRepository;
 import com.example.vap_back.repository.UserRepository;
 import com.example.vap_back.service.impl.BookmarkServiceImpl;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +29,7 @@ class BookmarkServiceTest {
 
     @Mock BookmarkRepository bookmarkRepository;
     @Mock UserRepository userRepository;
+    @Mock NewsRepository newsRepository;
 
     @InjectMocks
     BookmarkServiceImpl bookmarkService;
@@ -49,7 +52,9 @@ class BookmarkServiceTest {
     void toggleBookmark_save() {
         // given
         given(userRepository.findByEmail("user@test.com")).willReturn(Optional.of(testUser()));
-        given(bookmarkRepository.findByUserIdAndNewsUrl(1L, "http://news.com")).willReturn(Optional.empty());
+        News news = News.builder().id(20L).url("http://news.com").title("테스트 뉴스").build();
+        given(newsRepository.findByUrl("http://news.com")).willReturn(Optional.of(news));
+        given(bookmarkRepository.findByUserIdAndNewsId(1L, 20L)).willReturn(Optional.empty());
 
         // when
         String result = bookmarkService.toggleBookmark("user@test.com", testDto("http://news.com"));
@@ -64,9 +69,11 @@ class BookmarkServiceTest {
     void toggleBookmark_delete() {
         // given
         Bookmark existing = Bookmark.builder()
-                .id(10L).userId(1L).newsUrl("http://news.com").savedAt(LocalDateTime.now()).build();
+                .id(10L).userId(1L).news(News.builder().id(20L).url("http://news.com").build())
+                .savedAt(LocalDateTime.now()).build();
         given(userRepository.findByEmail("user@test.com")).willReturn(Optional.of(testUser()));
-        given(bookmarkRepository.findByUserIdAndNewsUrl(1L, "http://news.com")).willReturn(Optional.of(existing));
+        given(newsRepository.findByUrl("http://news.com")).willReturn(Optional.of(existing.getNews()));
+        given(bookmarkRepository.findByUserIdAndNewsId(1L, 20L)).willReturn(Optional.of(existing));
 
         // when
         String result = bookmarkService.toggleBookmark("user@test.com", testDto("http://news.com"));

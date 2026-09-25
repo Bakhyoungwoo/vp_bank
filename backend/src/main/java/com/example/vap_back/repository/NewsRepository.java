@@ -8,10 +8,13 @@ import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface NewsRepository extends JpaRepository<News, Long> {
 
     boolean existsByUrl(String url);
+
+    Optional<News> findByUrl(String url);
 
     // readOnly 힌트: 영속성 컨텍스트 dirty checking 비활성화 → 조회 성능 향상
     @QueryHints(@QueryHint(name = "org.hibernate.readOnly", value = "true"))
