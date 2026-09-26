@@ -11,10 +11,10 @@ services:
     image: mysql:8.0
     container_name: vap-mysql
     environment:
-      MYSQL_DATABASE: vapdb
-      MYSQL_USER: vap
-      MYSQL_PASSWORD: vap123
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-vapdb}
+      MYSQL_USER: ${MYSQL_USER:-vap}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD must be set}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set}
     volumes:
       - mysql_data:/var/lib/mysql
     command:
@@ -66,16 +66,14 @@ services:
       - vap-network
 
   ai:
-    build: ../ai
+    image: ${DOCKER_USERNAME}/vap-python:${IMAGE_TAG:-latest}
     container_name: vap-ai
     depends_on:
       redis:
         condition: service_healthy
-    env_file:
-      - path: ../ai/.env
-        required: false
     environment:
       REDIS_HOST: redis
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       # backend는 blue/green 두 슬롯으로 나뉘어 고정 호스트명이 없으므로,
       # 활성 슬롯으로 트래픽을 넘겨주는 nginx를 통해 콜백을 보낸다.
       SPRING_HOST: nginx
@@ -87,7 +85,7 @@ services:
   # blue/green 두 슬롯. 항상 둘 다 떠 있고, nginx가 그 중 하나에만 트래픽을 흘려보낸다.
   # 배포 스크립트(scripts/deploy-blue-green.sh)가 비활성 슬롯만 갱신한 뒤 트래픽을 전환한다.
   backend-blue:
-    image: ${DOCKER_USERNAME}/vap-backend:latest
+    image: ${DOCKER_USERNAME}/vap-backend:${IMAGE_TAG:-latest}
     container_name: vap-backend-blue
     depends_on:
       mysql:
@@ -106,7 +104,7 @@ services:
       - vap-network
 
   backend-green:
-    image: ${DOCKER_USERNAME}/vap-backend:latest
+    image: ${DOCKER_USERNAME}/vap-backend:${IMAGE_TAG:-latest}
     container_name: vap-backend-green
     depends_on:
       mysql:
@@ -135,7 +133,6 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
     ports:
       - "80:80"
-      - "8080:8080"
     networks:
       - vap-network
 
