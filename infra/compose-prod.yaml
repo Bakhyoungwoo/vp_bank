@@ -76,15 +76,19 @@ services:
         required: false
     environment:
       REDIS_HOST: redis
-      SPRING_HOST: backend
+      # backend는 blue/green 두 슬롯으로 나뉘어 고정 호스트명이 없으므로,
+      # 활성 슬롯으로 트래픽을 넘겨주는 nginx를 통해 콜백을 보낸다.
+      SPRING_HOST: nginx
     ports:
       - "8000:8000"
     networks:
       - vap-network
 
-  backend:
+  # blue/green 두 슬롯. 항상 둘 다 떠 있고, nginx가 그 중 하나에만 트래픽을 흘려보낸다.
+  # 배포 스크립트(scripts/deploy-blue-green.sh)가 비활성 슬롯만 갱신한 뒤 트래픽을 전환한다.
+  backend-blue:
     image: ${DOCKER_USERNAME}/vap-backend:latest
-    container_name: vap-backend
+    container_name: vap-backend-blue
     depends_on:
       mysql:
         condition: service_healthy
@@ -98,7 +102,39 @@ services:
       - .env
     environment:
       AI_BASE_URL: http://ai:8000
+    networks:
+      - vap-network
+
+  backend-green:
+    image: ${DOCKER_USERNAME}/vap-backend:latest
+    container_name: vap-backend-green
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      ai:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      AI_BASE_URL: http://ai:8000
+    networks:
+      - vap-network
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: vap-nginx
+    depends_on:
+      - backend-blue
+      - backend-green
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
     ports:
+      - "80:80"
       - "8080:8080"
     networks:
       - vap-network
