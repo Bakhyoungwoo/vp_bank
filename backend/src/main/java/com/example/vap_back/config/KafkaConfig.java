@@ -19,6 +19,7 @@ import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 import org.springframework.util.backoff.FixedBackOff;
+import com.example.vap_back.dto.AnalysisRequestedEvent;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -147,6 +148,48 @@ public class KafkaConfig {
         factory.setBatchListener(false);
         factory.setCommonErrorHandler(errorHandler);
 
+        return factory;
+    }
+
+    @Bean
+    public ProducerFactory<String, AnalysisRequestedEvent> analysisProducerFactory() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        return new DefaultKafkaProducerFactory<>(config);
+    }
+
+    @Bean
+    public KafkaTemplate<String, AnalysisRequestedEvent> analysisKafkaTemplate() {
+        return new KafkaTemplate<>(analysisProducerFactory());
+    }
+
+    @Bean
+    public ConsumerFactory<String, AnalysisRequestedEvent> analysisConsumerFactory() {
+        JsonDeserializer<AnalysisRequestedEvent> deserializer =
+                new JsonDeserializer<>(AnalysisRequestedEvent.class);
+        deserializer.addTrustedPackages("*");
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, "analysis-worker-group");
+        config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+
+        return new DefaultKafkaConsumerFactory<>(config, new StringDeserializer(), deserializer);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, AnalysisRequestedEvent>
+    analysisKafkaListenerContainerFactory() {
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(
+                new FixedBackOff(1_000L, 2L));
+        ConcurrentKafkaListenerContainerFactory<String, AnalysisRequestedEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(analysisConsumerFactory());
+        factory.setConcurrency(1);
+        factory.setCommonErrorHandler(errorHandler);
         return factory;
     }
 }
