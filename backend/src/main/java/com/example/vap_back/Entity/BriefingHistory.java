@@ -8,6 +8,9 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(name = "briefing_history", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_briefing_history_job_id", columnNames = "job_id")
+})
 @Getter
 @Builder
 @NoArgsConstructor
@@ -20,6 +23,9 @@ public class BriefingHistory {
     // 누구를 위한 브리핑인지
     @Column(nullable = false)
     private Long userId;
+
+    @Column(name = "job_id", length = 36)
+    private String jobId;
 
     @Column(nullable = false)
     private LocalDateTime generatedAt;
