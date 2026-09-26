@@ -10,6 +10,8 @@ import java.util.Optional;
 
 public interface BriefingHistoryRepository extends JpaRepository<BriefingHistory, Long> {
 
+    boolean existsByJobId(String jobId);
+
     @QueryHints(@QueryHint(name = "org.hibernate.readOnly", value = "true"))
     Optional<BriefingHistory> findTopByUserIdOrderByGeneratedAtDesc(Long userId);
 
