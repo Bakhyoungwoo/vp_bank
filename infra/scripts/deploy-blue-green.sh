@@ -65,6 +65,9 @@ main() {
     # 서버에 아무 것도 안 떠 있는 최초 배포 상황을 대비해, 활성 슬롯과 나머지 의존 서비스를
     # 먼저 기동해둔다(이미 떠 있으면 아무 일도 하지 않는다 - docker compose up -d는 멱등적).
     log "기반 서비스(mysql/redis/kafka/ai/nginx)와 현재 활성 슬롯(${active})을 확인합니다."
+    if [ "${SKIP_PULL:-false}" != "true" ]; then
+        compose pull ai
+    fi
     compose up -d mysql redis kafka ai nginx "$active"
     if ! wait_for_health "$active"; then
         log "활성 슬롯(${active})이 정상 기동되지 않았습니다 — 배포를 중단합니다."

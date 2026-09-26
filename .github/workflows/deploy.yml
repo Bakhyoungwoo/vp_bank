@@ -58,7 +58,9 @@ jobs:
           context: ./ai
           file: ./ai/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/vap-python:latest
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/vap-python:latest
+            ${{ secrets.DOCKER_USERNAME }}/vap-python:${{ github.sha }}
 
   # Job 3: Deploy to Server
   deploy:
@@ -86,9 +88,7 @@ jobs:
           key: ${{ secrets.SERVER_KEY }}
           script: |
             export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
-
-            docker pull ${{ secrets.DOCKER_USERNAME }}/vap-python:latest
-            docker compose -f compose-prod.yaml up -d ai
+            export IMAGE_TAG=${{ github.sha }}
 
             chmod +x deploy-blue-green.sh
             ./deploy-blue-green.sh
