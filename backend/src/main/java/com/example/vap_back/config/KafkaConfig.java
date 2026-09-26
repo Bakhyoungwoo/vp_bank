@@ -30,7 +30,7 @@ public class KafkaConfig {
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
-    
+
     // UserEvent Kafka (users-topic)
     @Bean
     public ProducerFactory<String, UserEvent> userProducerFactory() {
@@ -180,10 +180,21 @@ public class KafkaConfig {
         return new DefaultKafkaConsumerFactory<>(config, new StringDeserializer(), deserializer);
     }
 
+    // DLQ: 재시도까지 소진된 분석 요청 메시지를 analysis-requested-dlq 토픽으로 전송
+    @Bean
+    public KafkaTemplate<String, AnalysisRequestedEvent> analysisDlqKafkaTemplate() {
+        return new KafkaTemplate<>(analysisProducerFactory());
+    }
+
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, AnalysisRequestedEvent>
     analysisKafkaListenerContainerFactory() {
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                analysisDlqKafkaTemplate(),
+                (record, ex) -> new TopicPartition("analysis-requested-dlq", 0)
+        );
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(
+                recoverer,
                 new FixedBackOff(1_000L, 2L));
         ConcurrentKafkaListenerContainerFactory<String, AnalysisRequestedEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
