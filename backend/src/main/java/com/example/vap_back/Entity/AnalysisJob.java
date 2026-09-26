@@ -52,6 +52,13 @@ public class AnalysisJob {
     @Column(columnDefinition = "TEXT")
     private String errorMessage;
 
+    @Column(name = "retry_count", nullable = false)
+    @Builder.Default
+    private Integer retryCount = 0;
+
+    @Column(name = "last_attempt_at")
+    private LocalDateTime lastAttemptAt;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -83,5 +90,12 @@ public class AnalysisJob {
     public void markFailed(String message) {
         status = "FAILED";
         errorMessage = message;
+    }
+
+    public void recordRecoveryAttempt(String newEventId) {
+        this.eventId = newEventId;
+        this.retryCount += 1;
+        this.lastAttemptAt = LocalDateTime.now();
+        this.status = "PENDING";
     }
 }
