@@ -67,6 +67,8 @@ jobs:
     needs: [build-spring, build-python]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       # 설정 파일(compose-prod.yaml, nginx 설정, 배포 스크립트) 서버로 전송
       - name: Copy Deploy Files to Server
         uses: appleboy/scp-action@v0.1.7
