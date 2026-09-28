@@ -74,7 +74,22 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ap-northeast-2
+
+      - name: Resolve production security group
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "AWS account: $ACCOUNT_ID"
+          SG_ID=$(aws ec2 describe-security-groups \
+            --region ap-northeast-2 \
+            --filters Name=tag:Name,Values=vap-production-terraform \
+            --query 'SecurityGroups[0].GroupId' \
+            --output text)
+          test -n "$SG_ID" && test "$SG_ID" != "None" || {
+            echo "Tagged production security group was not found in account $ACCOUNT_ID"
+            exit 1
+          }
+          echo "EC2_SECURITY_GROUP_ID=$SG_ID" >> "$GITHUB_ENV"
 
       # GitHub Actions 러너의 공인 IP만 SSH(22)에 임시로 허용 (배포 종료 후 always()로 제거)
       - name: Allow runner IP for SSH
@@ -82,7 +97,7 @@ jobs:
           RUNNER_IP=$(curl -s https://checkip.amazonaws.com)
           echo "RUNNER_IP=$RUNNER_IP" >> "$GITHUB_ENV"
           aws ec2 authorize-security-group-ingress \
-            --group-id ${{ secrets.EC2_SECURITY_GROUP_ID }} \
+            --group-id "$EC2_SECURITY_GROUP_ID" \
             --protocol tcp --port 22 --cidr "${RUNNER_IP}/32"
 
       # 설정 파일(compose-prod.yaml, nginx 설정, 배포 스크립트) 서버로 전송
@@ -132,5 +147,5 @@ jobs:
         if: always()
         run: |
           aws ec2 revoke-security-group-ingress \
-            --group-id ${{ secrets.EC2_SECURITY_GROUP_ID }} \
+            --group-id "$EC2_SECURITY_GROUP_ID" \
             --protocol tcp --port 22 --cidr "${RUNNER_IP}/32" || true
