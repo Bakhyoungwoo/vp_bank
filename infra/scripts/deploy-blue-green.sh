@@ -6,6 +6,9 @@
 # 로컬 검증과 실제 서버 배포(SSH로 이 스크립트를 그대로 실행) 양쪽에서 동일하게 쓴다.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.."
+
 COMPOSE_FILE="${COMPOSE_FILE:-compose-prod.yaml}"
 ACTIVE_CONF="${ACTIVE_CONF:-nginx/conf.d/active.conf}"
 HEALTH_TIMEOUT_SECONDS="${HEALTH_TIMEOUT_SECONDS:-60}"
@@ -15,6 +18,16 @@ ERROR_RATE_THRESHOLD="${ERROR_RATE_THRESHOLD:-0.05}"   # 5%
 log() { echo "[deploy-blue-green] $*"; }
 
 compose() { docker compose -f "$COMPOSE_FILE" "$@"; }
+
+preflight() {
+    command -v docker >/dev/null 2>&1 || { log "docker 명령을 찾을 수 없습니다."; exit 1; }
+    docker compose version >/dev/null 2>&1 || { log "Docker Compose 플러그인이 필요합니다."; exit 1; }
+    [ -f "$COMPOSE_FILE" ] || { log "Compose 파일을 찾을 수 없습니다: $COMPOSE_FILE"; exit 1; }
+    [ -f "$ACTIVE_CONF" ] || { log "Nginx active 설정을 찾을 수 없습니다: $ACTIVE_CONF"; exit 1; }
+    [ -f .env ] || { log ".env가 없습니다. 운영 비밀값을 먼저 배치하십시오."; exit 1; }
+    [ -n "${DOCKER_USERNAME:-}" ] || { log "DOCKER_USERNAME이 설정되지 않았습니다."; exit 1; }
+    compose config >/dev/null
+}
 
 current_active_slot() {
     # active.conf: "set $active backend-blue;" 형태에서 슬롯 이름만 뽑는다.
@@ -29,7 +42,7 @@ wait_for_health() {
     local slot="$1"
     local deadline=$((SECONDS + HEALTH_TIMEOUT_SECONDS))
     while [ $SECONDS -lt $deadline ]; do
-        if compose exec -T "$slot" wget -q -O- http://localhost:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
+        if compose exec -T "$slot" curl -fsS http://localhost:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
             return 0
         fi
         sleep 2
@@ -42,7 +55,7 @@ wait_for_health() {
 snapshot_counts() {
     local slot="$1"
     local metrics
-    metrics=$(compose exec -T "$slot" wget -q -O- http://localhost:8080/actuator/prometheus 2>/dev/null || true)
+    metrics=$(compose exec -T "$slot" curl -fsS http://localhost:8080/actuator/prometheus 2>/dev/null || true)
     local total err
     total=$(echo "$metrics" | awk -F'[{} ]+' '/^http_server_requests_seconds_count\{/ { sum += $NF } END { print sum+0 }')
     err=$(echo "$metrics" | awk -F'[{} ]+' '/^http_server_requests_seconds_count\{/ && /status="5/ { sum += $NF } END { print sum+0 }')
@@ -58,6 +71,7 @@ switch_traffic() {
 
 main() {
     local active target
+    preflight
     active=$(current_active_slot)
     target=$(other_slot "$active")
     log "현재 활성 슬롯: ${active}, 배포 대상 슬롯: ${target}"

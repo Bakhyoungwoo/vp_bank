@@ -71,14 +71,16 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    env_file:
+      - path: ../ai/.env
+        required: false
+      - path: .env
+        required: false
     environment:
       REDIS_HOST: redis
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       # backend는 blue/green 두 슬롯으로 나뉘어 고정 호스트명이 없으므로,
       # 활성 슬롯으로 트래픽을 넘겨주는 nginx를 통해 콜백을 보낸다.
       SPRING_HOST: nginx
-    ports:
-      - "8000:8000"
     networks:
       - vap-network
 
