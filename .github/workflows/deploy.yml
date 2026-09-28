@@ -69,6 +69,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # GitHub Actions 러너의 공인 IP만 SSH(22)에 임시로 허용 (배포 종료 후 always()로 제거)
+      - name: Allow runner IP for SSH
+        run: |
+          RUNNER_IP=$(curl -s https://checkip.amazonaws.com)
+          echo "RUNNER_IP=$RUNNER_IP" >> "$GITHUB_ENV"
+          aws ec2 authorize-security-group-ingress \
+            --group-id ${{ secrets.EC2_SECURITY_GROUP_ID }} \
+            --protocol tcp --port 22 --cidr "${RUNNER_IP}/32"
+
       # 설정 파일(compose-prod.yaml, nginx 설정, 배포 스크립트) 서버로 전송
       - name: Copy Deploy Files to Server
         uses: appleboy/scp-action@v0.1.7
@@ -97,3 +113,10 @@ jobs:
             ./deploy-blue-green.sh
 
             docker image prune -f
+
+      - name: Revoke runner IP from SSH
+        if: always()
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id ${{ secrets.EC2_SECURITY_GROUP_ID }} \
+            --protocol tcp --port 22 --cidr "${RUNNER_IP}/32" || true
