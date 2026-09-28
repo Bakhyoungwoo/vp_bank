@@ -1,8 +1,6 @@
 name: VAP Backend CI
 
 on:
-  push:
-    branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
 
@@ -27,14 +25,3 @@ jobs:
       - name: Build with Gradle
         working-directory: backend
         run: ./gradlew clean build -x test
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and Push Docker Image
-        run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/vap-backend:latest -f infra/Dockerfile backend
-          docker push ${{ secrets.DOCKER_USERNAME }}/vap-backend:latest
