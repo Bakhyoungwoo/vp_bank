@@ -128,6 +128,10 @@ stop_smoke_traffic() {
         SMOKE_PID=""
     fi
 }
+# 스크립트가 어떤 경로로 끝나든(정상 종료, exit 1/2, 시그널) 스모크 루프가 백그라운드에
+# 남지 않도록 EXIT에 건다. monitor_and_maybe_rollback 안의 RETURN 트랩만으로는 이 함수
+# 밖에서 스크립트가 죽는 경우(예: 상위 프로세스가 강제 종료됨)를 못 잡는다.
+trap stop_smoke_traffic EXIT
 
 # 전환 후 관찰을 수행한다.
 #   반환값 0 = 성공(그대로 유지), 1 = 롤백함, 2 = 판정 불가(표본 부족, target에 그대로 유지)
@@ -146,7 +150,7 @@ monitor_and_maybe_rollback() {
     local fail_streak=0
 
     start_smoke_traffic "$target"
-    trap stop_smoke_traffic RETURN
+    trap stop_smoke_traffic RETURN   # 이 함수가 반환되는 즉시 정리 (아래 EXIT 트랩은 그 외 비정상 종료를 막는 추가 안전장치)
 
     local elapsed=0
     while [ "$elapsed" -lt "$MONITOR_SECONDS" ]; do
