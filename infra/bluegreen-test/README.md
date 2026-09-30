@@ -95,6 +95,12 @@ SKIP_BUILD=true bash bluegreen-test/kill-target-test.sh old
 (0=성공, 1=롤백, 2=판정 불가). 집계 시 `/actuator/prometheus`(이 스크립트 자신의 조회)만
 제외하고, `/actuator/health`(스모크 기본 대상)는 그대로 포함한다.
 
+**관찰 기간 요청 수 = 스모크 + 크롤러 콜백 등 실제 내부 트래픽 합계다.** `/actuator/prometheus`
+외에는 아무것도 안 걸러내므로, AI 크롤러가 nginx를 거쳐 보내는 `POST /api/internal/news` 같은
+실제 서비스 트래픽도 같이 잡힌다(의도된 동작 - 합성 스모크만이 아니라 실제 트래픽 건강도를
+반영한다). 그래서 "관찰 기간 요청 N건"을 스모크 요청 수(`SMOKE_RPS`×시간)로 역산하면 안 맞을
+수 있다.
+
 ### 인증 없는 뉴스 조회 GET API가 없다
 
 `/api/news/**`, `/api/market/**`, `/api/stocks/**` 등 실질적인 조회 API는 전부
