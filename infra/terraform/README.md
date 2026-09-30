@@ -17,3 +17,16 @@ terraform apply
 The apply command does not destroy the existing instance. After the new server is reachable, create `~/.env`, update GitHub Actions `SERVER_HOST` and `EC2_SECURITY_GROUP_ID`, and rerun the deployment workflow.
 
 Do not commit a real `terraform.tfvars` file or any production secrets.
+
+## Notes from the 2026-09-28 setup
+
+- The instance created that day was launched manually from the AWS console rather than via this
+  `terraform apply`, so its security group was named `launch-wizard-1` (the default the console
+  gives it), not `vap-production-terraform` from `main.tf`. `EC2_SECURITY_GROUP_ID` was pointed at
+  that console-created group. The instance was later terminated (verified 2026-09-30: no EC2
+  instances exist in this account/region), and the group was deleted the same day since nothing
+  referenced it any more.
+- **Whenever the instance is recreated (via `terraform apply` or the console), update both
+  `SERVER_HOST` and `EC2_SECURITY_GROUP_ID` in GitHub Actions secrets to the new instance's values
+  before rerunning `deploy.yml`** — `main.tf` creates its own `vap-production-terraform` security
+  group, so the ID will differ from any previous manually-created one.
