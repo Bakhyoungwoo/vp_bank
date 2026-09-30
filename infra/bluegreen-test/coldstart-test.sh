@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# "서버에 아무 것도 안 떠 있는 최초 배포" 상황에서 fixed 모드(--no-recreate / --no-deps)를 돌려,
+# "서버에 아무 것도 안 떠 있는 최초 배포" 상황에서 실제 scripts/deploy-blue-green.sh
+# (--no-recreate / --no-deps 적용된 현재 버전)를 그대로 돌려,
 #   1) nginx가 정상 기동하는지
 #   2) blue/green 두 슬롯이 실제로 어떤 순서로 뜨는지
 # 를 로그로 남긴다.
@@ -53,24 +54,19 @@ log "전체 스택 완전히 내림 (down -v) - 최초 배포 상황 재현"
 $C down -t 5 -v >/dev/null 2>&1 || true
 printf 'set $active backend-blue;\n' > nginx/conf.d/active.conf
 
-# 2) fixed 모드 스크립트 준비 (bluegreen-test/run.sh와 동일한 패치)
-sed 's/\r$//' scripts/deploy-blue-green.sh > scripts/.deploy-coldstart-fixed.sh
-sed -i 's/compose up -d mysql redis kafka ai nginx "\$active"/compose up -d --no-recreate mysql redis kafka ai nginx "$active"/;
-        s/compose up -d "\$target"/compose up -d --no-deps "$target"/' scripts/.deploy-coldstart-fixed.sh
-
-# 3) 컨테이너 start 이벤트를 배포 동안 백그라운드로 수집 (순서 판정용)
+# 2) 컨테이너 start 이벤트를 배포 동안 백그라운드로 수집 (순서 판정용)
 DEPLOY_START_ISO=$(date -u +%Y-%m-%dT%H:%M:%S)
 docker events --since "$DEPLOY_START_ISO" --filter 'event=start' \
   --format '{{.Time}} {{.Actor.Attributes.name}}' > "$OUT/docker-events.log" 2>&1 &
 EVENTS_PID=$!
 sleep 1   # docker events가 구독을 시작할 시간을 준다
 
-# 4) 배포 실행 (fixed, SKIP_PULL - 로컬 이미지만 사용)
-log "fixed 모드로 최초 배포 실행 (아무 컨테이너도 없는 상태에서 시작)"
+# 3) 배포 실행 (실제 scripts/deploy-blue-green.sh, SKIP_PULL - 로컬 이미지만 사용)
+log "최초 배포 실행 (아무 컨테이너도 없는 상태에서 시작)"
 DEPLOY_START=$(date +%s%3N)
 set +e
 COMPOSE_FILE="$MERGED" DOCKER_USERNAME=vaptest IMAGE_TAG=v1 SKIP_PULL=true HEALTH_TIMEOUT_SECONDS=120 MONITOR_SECONDS=10 \
-  bash scripts/.deploy-coldstart-fixed.sh 2>&1 | timestamp_stream | tee "$OUT/deploy.log"
+  bash scripts/deploy-blue-green.sh 2>&1 | timestamp_stream | tee "$OUT/deploy.log"
 DEPLOY_RC=${PIPESTATUS[0]}
 set -e
 DEPLOY_END=$(date +%s%3N)
@@ -78,9 +74,8 @@ log "배포 종료 rc=${DEPLOY_RC} ($(( (DEPLOY_END-DEPLOY_START)/1000 ))s)"
 
 sleep 2
 kill "$EVENTS_PID" 2>/dev/null || true
-rm -f scripts/.deploy-coldstart-fixed.sh
 
-# 5) nginx 기동 여부 확인
+# 4) nginx 기동 여부 확인
 NGINX_STATUS=$(docker inspect -f '{{.State.Status}}' vap-bgtest-nginx 2>/dev/null || echo "not-found")
 NGINX_HEALTH_HTTP=$(curl -fs -o /dev/null -w '%{http_code}' http://localhost/actuator/health 2>/dev/null || echo "curl-failed")
 {
@@ -90,7 +85,7 @@ NGINX_HEALTH_HTTP=$(curl -fs -o /dev/null -w '%{http_code}' http://localhost/act
   docker logs --tail 40 vap-bgtest-nginx 2>&1
 } > "$OUT/nginx-status.txt"
 
-# 6) blue/green/nginx 실제 시작 순서: docker events 로그 + StartedAt 둘 다 남긴다
+# 5) blue/green/nginx 실제 시작 순서: docker events 로그 + StartedAt 둘 다 남긴다
 {
   echo "--- docker events (event=start), 시간순 ---"
   grep -E 'vap-bgtest-(backend-blue|backend-green|nginx)\b' "$OUT/docker-events.log" || echo "(이벤트 없음 - 아래 StartedAt 참고)"

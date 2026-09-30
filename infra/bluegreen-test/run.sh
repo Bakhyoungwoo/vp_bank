@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
-# Blue-Green 무중단 배포 검증
-#   사용법 (infra 폴더에서, Git Bash):  bash bluegreen-test/run.sh original   또는   bash bluegreen-test/run.sh fixed
-#   original: 현재 scripts/deploy-blue-green.sh 그대로 실행
-#   fixed   : 기반 서비스 기동에 --no-recreate, 대상 슬롯 갱신에 --no-deps를 적용한 버전으로 실행
+# Blue-Green 무중단 배포 검증 (v1 -> v2, k6 부하 중 활성 슬롯 재생성 여부 확인)
+#   사용법 (infra 폴더에서, Git Bash): bash bluegreen-test/run.sh [before|after] [MONITOR_SECONDS]
+#   before (기본): --no-recreate/--no-deps 적용 전 버전 (deploy-blue-green.PRE-NORECREATE.sh,
+#                  2026-09-30 commit 5f2d067 시점 - fault injection/조기 롤백은 있고 --no-recreate만 없음)
+#   after        : 현재 scripts/deploy-blue-green.sh (--no-recreate/--no-deps 적용됨)
 set -euo pipefail
 export MSYS_NO_PATHCONV=1
 
-MODE="${1:-original}"
+MODE="${1:-before}"
+MONITOR_SECONDS_ARG="${2:-30}"
+if [ "$MODE" = "after" ]; then
+  DEPLOY_SCRIPT="scripts/deploy-blue-green.sh"
+else
+  DEPLOY_SCRIPT="bluegreen-test/deploy-blue-green.PRE-NORECREATE.sh"
+fi
 cd "$(dirname "$0")/.."                      # infra/
 OUT="bluegreen-test/result-${MODE}-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$OUT"
@@ -86,15 +93,11 @@ K6PID=$!
 sleep 15
 
 # 5) 배포 실행 (v2)
-sed 's/\r$//' scripts/deploy-blue-green.sh > scripts/.deploy-under-test.sh
-if [ "$MODE" = "fixed" ]; then
-  sed -i 's/compose up -d mysql redis kafka ai nginx "\$active"/compose up -d --no-recreate mysql redis kafka ai nginx "$active"/;
-          s/compose up -d "\$target"/compose up -d --no-deps "$target"/' scripts/.deploy-under-test.sh
-fi
+sed 's/\r$//' "$DEPLOY_SCRIPT" > scripts/.deploy-under-test.sh
 DEPLOY_START=$(date +%s%3N)
-log "배포 시작 (mode=$MODE)"
+log "배포 시작 (mode=$MODE, script=$DEPLOY_SCRIPT, MONITOR_SECONDS=$MONITOR_SECONDS_ARG)"
 set +e
-COMPOSE_FILE="$DEPLOY_COMPOSE_FILE" IMAGE_TAG=v2 SKIP_PULL=true MONITOR_SECONDS=30 HEALTH_TIMEOUT_SECONDS=180 \
+COMPOSE_FILE="$DEPLOY_COMPOSE_FILE" IMAGE_TAG=v2 SKIP_PULL=true MONITOR_SECONDS="$MONITOR_SECONDS_ARG" HEALTH_TIMEOUT_SECONDS=180 \
   bash scripts/.deploy-under-test.sh 2>&1 | tee "$OUT/deploy.log"
 DEPLOY_RC=${PIPESTATUS[0]}
 set -e
