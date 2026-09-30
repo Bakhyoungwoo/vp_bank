@@ -1,0 +1,23 @@
+# bluegreen-test 전용 격리 오버레이.
+# compose-prod.yaml의 container_name은 고정값(vap-mysql, vap-kafka ...)이라 프로젝트명만
+# 바꿔서는(COMPOSE_PROJECT_NAME=vap-bgtest) 컨테이너 이름 충돌(특히 vap-kafka)을 막을 수 없다.
+# 그래서 컨테이너 이름도 전부 vap-bgtest- 접두사로 덮어써서, 로컬에 떠 있는 다른 dev 스택
+# (예: compose.perf.yaml)과 컨테이너/볼륨/네트워크 어느 것도 절대 겹치지 않게 한다.
+#
+# deploy-blue-green.sh는 서비스명(backend-blue 등)으로만 compose exec/up을 호출하므로
+# container_name을 바꿔도 동작에는 영향이 없다.
+services:
+  mysql:
+    container_name: vap-bgtest-mysql
+  redis:
+    container_name: vap-bgtest-redis
+  kafka:
+    container_name: vap-bgtest-kafka
+  ai:
+    container_name: vap-bgtest-ai
+  backend-blue:
+    container_name: vap-bgtest-backend-blue
+  backend-green:
+    container_name: vap-bgtest-backend-green
+  nginx:
+    container_name: vap-bgtest-nginx
