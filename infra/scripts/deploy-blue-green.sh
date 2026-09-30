@@ -74,9 +74,12 @@ snapshot_counts() {
         return 1
     fi
     [ -n "$metrics" ] || return 1
+    # /actuator/prometheus (이 함수 자신이 매 폴링마다 찌르는 조회)는 실제 서비스 트래픽이
+    # 아니므로 집계에서 제외한다 - 안 걸러내면 이 조회 자체가 200 요청으로 잡혀 표본이
+    # 부풀려진다. /actuator/health는 SMOKE_URLS 기본값이라 그대로 집계에 포함한다.
     local total err
-    total=$(echo "$metrics" | awk -F'[{} ]+' '/^http_server_requests_seconds_count\{/ { sum += $NF } END { print sum+0 }')
-    err=$(echo "$metrics" | awk -F'[{} ]+' '/^http_server_requests_seconds_count\{/ && /status="5/ { sum += $NF } END { print sum+0 }')
+    total=$(echo "$metrics" | awk -F'[{} ]+' '/^http_server_requests_seconds_count\{/ && !/uri="\/actuator\/prometheus"/ { sum += $NF } END { print sum+0 }')
+    err=$(echo "$metrics" | awk -F'[{} ]+' '/^http_server_requests_seconds_count\{/ && !/uri="\/actuator\/prometheus"/ && /status="5/ { sum += $NF } END { print sum+0 }')
     echo "$total $err"
 }
 
@@ -226,11 +229,15 @@ main() {
 
     # 서버에 아무 것도 안 떠 있는 최초 배포 상황을 대비해, 활성 슬롯과 나머지 의존 서비스를
     # 먼저 기동해둔다(이미 떠 있으면 아무 일도 하지 않는다 - docker compose up -d는 멱등적).
+    # --no-recreate: IMAGE_TAG가 이전 배포와 다르면(예: git SHA 갱신) 여기 명시된 $active도
+    # ${IMAGE_TAG}를 참조하므로 재생성 대상으로 잡혀버린다 - 이미 트래픽을 받고 있는 슬롯이
+    # 불필요하게 내려갔다 올라오며 순단이 생기는 걸 막는다 (2026-09-30 측정: 이 플래그 없이
+    # 돌리면 활성 슬롯이 재생성되며 502가 3428건 발생, 이후 --no-recreate 적용 시 0건).
     log "기반 서비스(mysql/redis/kafka/ai/nginx)와 현재 활성 슬롯(${active})을 확인합니다."
     if [ "${SKIP_PULL:-false}" != "true" ]; then
         compose pull ai
     fi
-    compose up -d mysql redis kafka ai nginx "$active"
+    compose up -d --no-recreate mysql redis kafka ai nginx "$active"
     if ! wait_for_health "$active"; then
         log "활성 슬롯(${active})이 정상 기동되지 않았습니다 — 배포를 중단합니다."
         exit 1
@@ -240,7 +247,11 @@ main() {
     if [ "${SKIP_PULL:-false}" != "true" ]; then
         compose pull "$target"
     fi
-    compose up -d "$target"
+    # --no-deps: mysql/redis/kafka/ai는 위 줄에서 이미 --no-recreate로 보호됐으니, 여기서는
+    # $target 자신의 설정 변경(새 이미지)만 반영하고 의존 서비스는 다시 들여다보지 않는다.
+    # 최초 배포(콜드스타트)에서는 nginx가 depends_on으로 두 슬롯을 같이 끌어오므로 이 플래그가
+    # 관찰 가능한 차이를 만들진 않지만(coldstart-test.sh로 확인), 방어적으로 유지한다.
+    compose up -d --no-deps "$target"
 
     log "${target} 헬스체크 대기 중 (최대 ${HEALTH_TIMEOUT_SECONDS}s)..."
     if ! wait_for_health "$target"; then
