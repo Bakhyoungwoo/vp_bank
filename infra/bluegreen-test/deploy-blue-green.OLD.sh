@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# kill-target-test.sh 비교용으로 남겨둔, 2026-09-30 수정 이전의 deploy-blue-green.sh 사본.
+# (지표 수집 실패/컨테이너 재시작을 감지하지 못하고 "성공"으로 처리하던 버전 - 그 버그를
+# 재현해서 새 버전과 비교하는 용도. 실제 배포에는 쓰지 않는다.)
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.."
+
+COMPOSE_FILE="${COMPOSE_FILE:-compose-prod.yaml}"
+ACTIVE_CONF="${ACTIVE_CONF:-nginx/conf.d/active.conf}"
+HEALTH_TIMEOUT_SECONDS="${HEALTH_TIMEOUT_SECONDS:-60}"
+MONITOR_SECONDS="${MONITOR_SECONDS:-60}"
+ERROR_RATE_THRESHOLD="${ERROR_RATE_THRESHOLD:-0.05}"   # 5%
+
+log() { echo "[deploy-blue-green] $*"; }
+
+compose() { docker compose -f "$COMPOSE_FILE" "$@"; }
+
+preflight() {
+    command -v docker >/dev/null 2>&1 || { log "docker 명령을 찾을 수 없습니다."; exit 1; }
+    docker compose version >/dev/null 2>&1 || { log "Docker Compose 플러그인이 필요합니다."; exit 1; }
+    [ -f "$COMPOSE_FILE" ] || { log "Compose 파일을 찾을 수 없습니다: $COMPOSE_FILE"; exit 1; }
+    [ -f "$ACTIVE_CONF" ] || { log "Nginx active 설정을 찾을 수 없습니다: $ACTIVE_CONF"; exit 1; }
+    [ -f .env ] || { log ".env가 없습니다. 운영 비밀값을 먼저 배치하십시오."; exit 1; }
+    [ -n "${DOCKER_USERNAME:-}" ] || { log "DOCKER_USERNAME이 설정되지 않았습니다."; exit 1; }
+    compose config >/dev/null
+}
+
+current_active_slot() {
+    grep -oE 'backend-(blue|green)' "$ACTIVE_CONF" | head -1
+}
+
+other_slot() {
+    if [ "$1" = "backend-blue" ]; then echo "backend-green"; else echo "backend-blue"; fi
+}
+
+wait_for_health() {
+    local slot="$1"
+    local deadline=$((SECONDS + HEALTH_TIMEOUT_SECONDS))
+    while [ $SECONDS -lt $deadline ]; do
+        if compose exec -T "$slot" curl -fsS http://localhost:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
+            return 0
+        fi
+        sleep 2
+    done
+    return 1
+}
+
+snapshot_counts() {
+    local slot="$1"
+    local metrics
+    metrics=$(compose exec -T "$slot" curl -fsS http://localhost:8080/actuator/prometheus 2>/dev/null || true)
+    local total err
+    total=$(echo "$metrics" | awk -F'[{} ]+' '/^http_server_requests_seconds_count\{/ { sum += $NF } END { print sum+0 }')
+    err=$(echo "$metrics" | awk -F'[{} ]+' '/^http_server_requests_seconds_count\{/ && /status="5/ { sum += $NF } END { print sum+0 }')
+    echo "$total $err"
+}
+
+switch_traffic() {
+    local slot="$1"
+    echo "set \$active ${slot};" > "$ACTIVE_CONF"
+    compose exec -T nginx nginx -s reload
+    log "트래픽을 ${slot}로 전환했습니다."
+}
+
+main() {
+    local active target
+    preflight
+    active=$(current_active_slot)
+    target=$(other_slot "$active")
+    log "현재 활성 슬롯: ${active}, 배포 대상 슬롯: ${target}"
+
+    log "기반 서비스(mysql/redis/kafka/ai/nginx)와 현재 활성 슬롯(${active})을 확인합니다."
+    if [ "${SKIP_PULL:-false}" != "true" ]; then
+        compose pull ai
+    fi
+    compose up -d mysql redis kafka ai nginx "$active"
+    if ! wait_for_health "$active"; then
+        log "활성 슬롯(${active})이 정상 기동되지 않았습니다 — 배포를 중단합니다."
+        exit 1
+    fi
+
+    log "${target} 컨테이너를 최신 이미지로 갱신합니다."
+    if [ "${SKIP_PULL:-false}" != "true" ]; then
+        compose pull "$target"
+    fi
+    compose up -d "$target"
+
+    log "${target} 헬스체크 대기 중 (최대 ${HEALTH_TIMEOUT_SECONDS}s)..."
+    if ! wait_for_health "$target"; then
+        log "헬스체크 실패 — 트래픽을 전환하지 않고 배포를 중단합니다."
+        exit 1
+    fi
+    log "${target} 헬스체크 통과."
+
+    read -r before_total before_err <<< "$(snapshot_counts "$target")"
+
+    switch_traffic "$target"
+
+    log "${MONITOR_SECONDS}s 동안 5xx 비율을 관찰합니다..."
+    sleep "$MONITOR_SECONDS"
+
+    read -r after_total after_err <<< "$(snapshot_counts "$target")"
+    local delta_total=$((after_total - before_total))
+    local delta_err=$((after_err - before_err))
+
+    if [ "$delta_total" -le 0 ]; then
+        log "관찰 기간 동안 트래픽이 없어 5xx 비율을 판단할 수 없습니다 — 배포를 성공으로 간주합니다."
+        exit 0
+    fi
+
+    local ratio
+    ratio=$(awk -v e="$delta_err" -v t="$delta_total" 'BEGIN { printf "%.4f", e/t }')
+    log "관찰 기간 요청 ${delta_total}건 중 5xx ${delta_err}건 (비율 ${ratio}, 임계치 ${ERROR_RATE_THRESHOLD})"
+
+    if awk -v r="$ratio" -v th="$ERROR_RATE_THRESHOLD" 'BEGIN { exit !(r > th) }'; then
+        log "5xx 비율이 임계치를 초과했습니다 — ${active}로 자동 롤백합니다."
+        switch_traffic "$active"
+        exit 1
+    fi
+
+    log "배포 성공. 활성 슬롯: ${target}"
+}
+
+main "$@"

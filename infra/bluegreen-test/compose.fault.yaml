@@ -1,0 +1,7 @@
+# rollback-test.sh 전용 오버레이. compose-prod.yaml은 건드리지 않고, 배포 대상(green)
+# 슬롯에만 FAULT_INJECT_RATE를 주입해 backend/config/FaultInjectionConfig의
+# fault.inject.rate 프로퍼티를 켠다. blue는 이 파일에 없으므로 영향받지 않는다.
+services:
+  backend-green:
+    environment:
+      FAULT_INJECT_RATE: ${FAULT_INJECT_RATE:-}

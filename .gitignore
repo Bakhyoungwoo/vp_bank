@@ -58,6 +58,7 @@ out/
 *.tfplan
 *.pem
 infra/k8s/.env.production
+infra/.bgtest-*.yaml
 
 # Python bytecode/tool caches and local virtualenvs
 __pycache__/
