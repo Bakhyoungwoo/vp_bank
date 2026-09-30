@@ -49,6 +49,10 @@ public class SecurityConfig {
                         .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
                         .requestMatchers("/", "/index.html", "/favicon.ico").permitAll()
                         // 클릭 로그 기록은 인증 필수
+                        // TODO(2026-09-30): 아래 주석은 실제와 다름 - recommend는 permitAll 목록에
+                        // 없고 "/api/news/**"이 authenticated()로 묶여 있어 비로그인 요청은 컨트롤러
+                        // (UserNewsController#recommendNews의 anonymousUser 분기)에 도달하기 전에
+                        // 401로 막힌다. 의도가 비로그인 기본 추천 허용이었다면 이 매처를 고쳐야 함.
                         // (recommend는 컨트롤러에서 비로그인 시 anonymous 기본 추천으로 처리하므로 인증 불필요 - permitAll 목록에서 매칭)
                         .requestMatchers(
                                 "/api/news/click"
