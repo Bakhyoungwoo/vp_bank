@@ -1,0 +1,49 @@
+html { scroll-behavior: smooth; }
+
+/* Tailwind의 display 유틸(inline-flex 등)이 브라우저 기본 [hidden] 규칙을 덮어써서
+   el.hidden = true 로 감춘 요소가 계속 보이는 문제를 막는다. */
+[hidden] { display: none !important; }
+
+body {
+  font-family: 'Pretendard', 'Outfit', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  background-color: #ffffff;
+}
+
+.keep-all { word-break: keep-all; }
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s cubic-bezier(0.16,1,0.3,1), transform 0.6s cubic-bezier(0.16,1,0.3,1);
+}
+.reveal.is-visible { opacity: 1; transform: translateY(0); }
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+.pulse-dot { animation: pulseDot 1.8s ease-in-out infinite; }
+
+.cta-magnetic {
+  transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s cubic-bezier(0.16,1,0.3,1);
+}
+.cta-magnetic:hover { transform: scale(1.02) translateY(-1px); }
+.cta-magnetic:active { transform: scale(0.98); }
+
+/* ---- 증시 탭 공용 ---- */
+.pill-tab {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.sparkline-bar {
+  transition: height 0.3s ease;
+}
+
+.chat-bubble {
+  max-width: 80%;
+}
+
+table.compare-table th,
+table.compare-table td {
+  white-space: nowrap;
+}

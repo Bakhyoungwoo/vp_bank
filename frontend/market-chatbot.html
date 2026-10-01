@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 증시 챗봇 | VAP</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
+  <link rel="stylesheet" href="assets/css/main.css">
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: {
+      sans: ['Pretendard', 'system-ui', 'sans-serif'],
+      display: ['Outfit', 'Pretendard', 'sans-serif'],
+    } } } }
+  </script>
+</head>
+<body class="bg-white text-zinc-900 antialiased selection:bg-emerald-200">
+
+  <div id="app-header"></div>
+
+  <section class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-14 flex flex-col" style="min-height: calc(100vh - 260px)">
+    <a href="market.html" class="inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-500 hover:text-zinc-800">
+      <iconify-icon icon="solar:arrow-left-linear"></iconify-icon> 증시
+    </a>
+    <h1 class="mt-4 text-3xl font-bold tracking-tight text-zinc-900">AI 증시 챗봇</h1>
+    <p class="mt-2 text-zinc-600">궁금한 종목이나 시장 이슈를 물어보세요.</p>
+
+    <div class="mt-4 inline-flex items-center gap-1.5 self-start rounded-full border border-amber-200 bg-amber-50 px-3 py-1">
+      <iconify-icon icon="solar:hammer-linear" class="text-amber-700 text-xs"></iconify-icon>
+      <span class="text-[11px] font-semibold text-amber-700">목업 챗봇 (백엔드 연동 전)</span>
+    </div>
+
+    <div id="chatLog" class="mt-6 flex-1 space-y-4 overflow-y-auto rounded-3xl border border-zinc-200 bg-zinc-50 p-5 min-h-[320px]"></div>
+
+    <form id="chatForm" class="mt-4 flex items-center gap-2">
+      <input id="chatInput" type="text" autocomplete="off" placeholder="예: 삼성전자 전망 어때?"
+        class="flex-1 rounded-2xl border border-zinc-200 bg-white px-4 py-3.5 text-sm text-zinc-900 outline-none focus:border-emerald-400">
+      <button type="submit" class="cta-magnetic flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white hover:bg-emerald-600">
+        <iconify-icon icon="solar:arrow-up-linear" class="text-lg"></iconify-icon>
+      </button>
+    </form>
+  </section>
+
+  <div id="app-footer"></div>
+
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/layout.js"></script>
+  <script src="assets/js/stock-mock.js"></script>
+  <script src="assets/js/market-chatbot.js"></script>
+</body>
+</html>
