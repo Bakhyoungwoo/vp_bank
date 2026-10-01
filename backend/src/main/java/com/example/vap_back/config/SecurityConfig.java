@@ -48,6 +48,10 @@ public class SecurityConfig {
                         // 프론트엔드 정적 리소스(index.html 등) 공개
                         .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
                         .requestMatchers("/", "/index.html", "/favicon.ico").permitAll()
+                        // frontend/ 정적 페이지 전체(각 html 파일, css/js 에셋) 공개
+                        // PathRequest.toStaticResources()의 공통 위치(css/js/images/webjars)에는
+                        // frontend/assets, 루트의 *.html이 해당하지 않아 별도로 열어줘야 한다.
+                        .requestMatchers("/*.html", "/assets/**").permitAll()
                         // 클릭 로그 기록은 인증 필수
                         // TODO(2026-09-30): 아래 주석은 실제와 다름 - recommend는 permitAll 목록에
                         // 없고 "/api/news/**"이 authenticated()로 묶여 있어 비로그인 요청은 컨트롤러

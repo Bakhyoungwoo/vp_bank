@@ -65,13 +65,8 @@ resource "aws_security_group" "vap_production" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress {
-    description = "HTTPS"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # 443은 열지 않음 - TLS 설정이 없어 인바운드만 열어둬 봤자 쓸 곳이 없음.
+  # TLS를 붙이게 되면(예: ALB/Caddy/certbot) 그때 다시 추가.
 
   egress {
     description = "All outbound traffic"
@@ -94,6 +89,10 @@ resource "aws_instance" "vap_production" {
   vpc_security_group_ids      = [aws_security_group.vap_production.id]
   associate_public_ip_address = true
 
+  metadata_options {
+    http_tokens = "required" # IMDSv2 강제
+  }
+
   root_block_device {
     volume_type           = "gp3"
     volume_size           = var.root_volume_size
@@ -101,9 +100,20 @@ resource "aws_instance" "vap_production" {
     encrypted             = true
   }
 
+  # mysql+kafka+ai(KR-SBERT)+spring 두 벌이 t3.medium(4GB)에서 동시에 뜨면 빠듯하다 -
+  # 특히 blue-green 배포 순간 새 슬롯이 뜰 때 OOM으로 헬스체크가 실패하는 걸 막기 위해
+  # 스왑 4GB를 깔아둔다.
   user_data = <<-EOF
     #!/bin/bash
     set -eux
+    fallocate -l 4G /swapfile
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+    echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    sysctl -w vm.swappiness=10
+    echo 'vm.swappiness=10' >> /etc/sysctl.conf
+
     apt-get update
     apt-get install -y ca-certificates curl
     install -m 0755 -d /etc/apt/keyrings
