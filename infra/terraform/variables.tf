@@ -25,11 +25,11 @@ variable "subnet_id" {
 variable "instance_type" {
   description = "EC2 instance type"
   type        = string
-  default     = "t3.micro"
+  default     = "t3.medium"
 }
 
 variable "root_volume_size" {
   description = "Root EBS volume size in GiB"
   type        = number
-  default     = 20
+  default     = 30
 }
