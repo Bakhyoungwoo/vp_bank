@@ -58,6 +58,16 @@ dependencies {
 
 }
 
+// frontend/ 정적 페이지를 빌드 산출물(build/resources/main/static)에 포함시킨다.
+// src/main/resources/static에는 직접 쓰지 않음 (소스 트리를 생성물로 오염시키지 않기 위함).
+// legacy/, .claude/는 운영에 올라갈 필요가 없어 제외.
+tasks.named('processResources') {
+    from("${rootDir}/../frontend") {
+        into 'static'
+        exclude 'legacy/**', '.claude/**', '.git/**', '.gitignore', 'README.md'
+    }
+}
+
 tasks.named('test') {
     useJUnitPlatform()
     testLogging {
