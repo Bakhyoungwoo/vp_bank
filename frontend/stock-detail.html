@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>종목 상세 | VAP</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="assets/css/main.css">
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: {
+      sans: ['Pretendard', 'system-ui', 'sans-serif'],
+      display: ['Outfit', 'Pretendard', 'sans-serif'],
+    } } } }
+  </script>
+</head>
+<body class="bg-white text-zinc-900 antialiased selection:bg-emerald-200">
+
+  <div id="app-header"></div>
+
+  <section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+    <a href="market.html" class="inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-500 hover:text-zinc-800">
+      <iconify-icon icon="solar:arrow-left-linear"></iconify-icon> 증시
+    </a>
+
+    <div id="stockHeader" class="mt-6"></div>
+
+    <div id="stockTabs" class="mt-8 flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-zinc-100"></div>
+
+    <div id="tabPanels" class="mt-8"></div>
+
+    <div id="aiSection" class="mt-8"></div>
+  </section>
+
+  <div id="app-footer"></div>
+
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/layout.js"></script>
+  <script src="assets/js/stock-mock.js"></script>
+  <script src="assets/js/stock-detail.js"></script>
+</body>
+</html>

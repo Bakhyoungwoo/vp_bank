@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>종목 비교 | VAP</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
+  <link rel="stylesheet" href="assets/css/main.css">
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: {
+      sans: ['Pretendard', 'system-ui', 'sans-serif'],
+      display: ['Outfit', 'Pretendard', 'sans-serif'],
+    } } } }
+  </script>
+</head>
+<body class="bg-white text-zinc-900 antialiased selection:bg-emerald-200">
+
+  <div id="app-header"></div>
+
+  <section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+    <a href="market.html" class="inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-500 hover:text-zinc-800">
+      <iconify-icon icon="solar:arrow-left-linear"></iconify-icon> 증시
+    </a>
+    <h1 class="mt-4 text-3xl font-bold tracking-tight text-zinc-900">종목 비교</h1>
+    <p class="mt-2 text-zinc-600">2~5개 종목의 주요 지표를 나란히 비교해보세요.</p>
+
+    <div class="mt-8 relative">
+      <input id="compareSearchInput" type="text" placeholder="예: 삼성전자, AAPL" autocomplete="off"
+        class="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none focus:border-emerald-400 focus:bg-white">
+      <div id="compareSearchResults" class="hidden absolute z-20 mt-2 w-full max-h-72 overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-lg"></div>
+    </div>
+
+    <div id="selectedChips" class="mt-4 flex flex-wrap gap-2"></div>
+
+    <button id="runCompareBtn" type="button" disabled
+      class="cta-magnetic mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-40">
+      <iconify-icon icon="solar:scale-linear"></iconify-icon> 비교하기
+    </button>
+
+    <div id="compareResultWrap" class="mt-8"></div>
+  </section>
+
+  <div id="app-footer"></div>
+
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/layout.js"></script>
+  <script src="assets/js/stock-compare.js"></script>
+</body>
+</html>
