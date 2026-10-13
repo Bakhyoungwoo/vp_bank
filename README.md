@@ -1,6 +1,6 @@
 # VAP
 
-![VAP](docs/vp_이미지.png)
+![VAP](assets/vp_이미지.png)
 
 AI 기반 뉴스 트렌드 분석 및 증시 정보 서비스
 
@@ -217,21 +217,12 @@ FastAPI 실행 후에는 다음 주소에서 OpenAPI 문서를 확인할 수 있
 http://localhost:8000/docs
 ```
 
-## 운영 및 관측성
-
-운영용 Docker Compose 설정은 `infra/compose-prod.yaml`에 있습니다. Backend에는 Prometheus와 Grafana 설정이 포함되어 있으며, 주요 요청 처리 시간과 애플리케이션 상태를 관측할 수 있습니다.
-
-장기 작업이나 다중 서버 배포 환경에서는 다음 보완이 필요합니다.
-
-- 크롤링 작업 이력을 Redis가 아닌 영속 DB에 저장
-- 내부 API를 관리자 또는 서비스 간 인증으로 제한
-- 다중 서버 환경의 SSE emitter를 Redis Pub/Sub 또는 별도 알림 게이트웨이로 분리
-- Kafka 메시지 재처리 및 Dead Letter Topic 운영
-
 ## 관련 문서
 
-- [ERD 상세 문서](docs/ERD.md)
-- [비동기 크롤링 결과 통지 구조](docs/ASYNC_NOTIFICATION_ARCHITECTURE.md)
-- [금융 AI 개발 계획](docs/FINANCIAL_AI_DEVELOPMENT_PLAN.md)
-- [키워드 실험 보고서](docs/keyword-experiment-report.md)
-- [Kubernetes 인프라 계획](docs/k8s-infra-plan.md)
+| 번호 | 문서 | 설명 |
+|---:|---|---|
+| 1 | [ERD 상세 문서](docs/ERD.md) | 사용자·뉴스·북마크·관심종목 데이터 구조 |
+| 2 | [Backend 구조 설계](docs/BACKEND_DESIGN.md) | Backend 역할, 서비스 책임 및 데이터 흐름 |
+| 3 | [AI Server 연동 구조](docs/AI_SERVER_INTEGRATION.md) | Spring Boot와 FastAPI AI Server 간 연동 흐름 |
+| 4 | [뉴스 추천 구조](docs/NEWS_RECOMMENDATION.md) | 사용자 활동 기반 뉴스 추천 및 키워드 처리 |
+| 5 | [금융 데이터 처리 구조](docs/FINANCIAL_DATA_PIPELINE.md) | 금융 데이터 Provider, 캐시 및 분석 흐름 |
