@@ -15,6 +15,10 @@ VAP는 다음 두 영역으로 구성됩니다.
 
 이 저장소에는 Spring Boot 백엔드와 FastAPI 기반 AI 서버가 포함되어 있습니다. 웹 프론트엔드는 별도 저장소인 `vp_front`에서 관리하며, 운영 환경에서는 Spring Boot가 정적 파일을 함께 서빙할 수 있습니다.
 
+## 시스템 아키텍처
+
+![VAP 시스템 아키텍처](assets/시스템아키텍쳐.jpg)
+
 ## 주요 기능
 
 ### 뉴스
@@ -122,99 +126,6 @@ vp_bank/
 ├── infra/                    # Docker Compose 및 운영 설정
 ├── docs/                     # 아키텍처 및 실험 문서
 └── README.md
-```
-
-## 실행 환경
-
-### 사전 요구사항
-
-- Java 17 이상
-- Python 3.10 이상
-- Docker 및 Docker Compose
-- OpenAI API Key (AI 서술 기능 사용 시)
-
-### 1. 인프라 실행
-
-```bash
-cd infra
-docker compose up -d mysql redis kafka
-```
-
-### 2. AI 서버 실행
-
-```bash
-cd ai
-python -m venv .venv
-
-# macOS / Linux
-source .venv/bin/activate
-
-# Windows PowerShell
-.venv\\Scripts\\Activate.ps1
-
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000
-```
-
-`ai/.env`를 생성하고 필요한 경우 다음 값을 설정합니다.
-
-```env
-OPENAI_API_KEY=your-api-key
-REDIS_HOST=127.0.0.1
-SPRING_HOST=127.0.0.1
-```
-
-### 3. Backend 실행
-
-```bash
-cd backend
-./gradlew bootRun
-```
-
-Windows에서는 다음 명령을 사용할 수 있습니다.
-
-```powershell
-.\\gradlew.bat bootRun
-```
-
-기본 포트는 다음과 같습니다.
-
-| 서비스 | 포트 |
-|---|---:|
-| Spring Boot | 8080 |
-| FastAPI | 8000 |
-| MySQL | 3307 |
-| Redis | 6379 |
-| Kafka | 9094 / 29093 |
-
-## 테스트
-
-Backend 테스트:
-
-```bash
-cd backend
-./gradlew test
-```
-
-AI 테스트:
-
-```bash
-cd ai
-pytest
-```
-
-## API 문서
-
-Spring Boot 실행 후 Swagger UI에서 REST API를 확인할 수 있습니다.
-
-```text
-http://localhost:8080/swagger-ui/index.html
-```
-
-FastAPI 실행 후에는 다음 주소에서 OpenAPI 문서를 확인할 수 있습니다.
-
-```text
-http://localhost:8000/docs
 ```
 
 ## 관련 문서
